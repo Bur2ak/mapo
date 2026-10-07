@@ -19,6 +19,29 @@ struct ProjectDetailView: View {
 private struct WorkspaceView: View {
     @Environment(Workspace.self) private var workspace
     @Binding var inspectorShown: Bool
+    @State private var levelNote: String?
+    @State private var levelNoteTask: Task<Void, Never>?
+
+    /// Switching level on a zoomed-out map can look like nothing happened:
+    /// say what is now on the map, briefly.
+    private func showLevelNote(_ level: MapController.Detail) {
+        guard let g = workspace.graph else { return }
+        let files = g.nodes.count { $0.kind == .file }
+        let code = g.nodes.count { $0.kind == .function || $0.kind == .method || $0.kind == .type }
+        let all = g.nodes.count { $0.kind != .external }
+        let text: String = switch level {
+        case .files: String(localized: "\(files) dosya")
+        case .symbols: String(localized: "\(files) dosya + \(code) fonksiyon ve tip · adlar yakınlaştıkça görünür")
+        case .everything: String(localized: "\(all) öğe · sabitler ve değişkenler dahil")
+        }
+        withAnimation(.easeOut(duration: 0.15)) { levelNote = text }
+        levelNoteTask?.cancel()
+        levelNoteTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.3)) { levelNote = nil }
+        }
+    }
 
     var body: some View {
         @Bindable var workspace = workspace
@@ -40,20 +63,34 @@ private struct WorkspaceView: View {
                 EmptyView()
             }
 
+        }
+        // Overlay, not a ZStack sibling: the palette must never take part in
+        // layout (as a sibling its fixed width pushed the split view sideways).
+        .overlay(alignment: .top) {
             if workspace.isSearchPresented {
-                Color.black.opacity(0.001)
-                    .onTapGesture { workspace.isSearchPresented = false }
-                SearchPalette()
-                    .padding(.top, 60)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                ZStack(alignment: .top) {
+                    Color.black.opacity(0.001)
+                        .onTapGesture { workspace.isSearchPresented = false }
+                    SearchPalette()
+                        .padding(.top, 60)
+                        .padding(.horizontal, 24)
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
         .overlay(alignment: .bottomTrailing) {
             if workspace.state == .ready { ZoomControls().padding(14) }
         }
         .overlay(alignment: .bottom) {
-            if workspace.state == .ready { MapHint().padding(.bottom, 16) }
+            if workspace.state == .ready {
+                VStack(spacing: 8) {
+                    if let note = levelNote { LevelNote(text: note) }
+                    MapHint()
+                }
+                .padding(.bottom, 16)
+            }
         }
+        .onChange(of: workspace.map.detail) { _, level in showLevelNote(level) }
         .navigationSubtitle(statusLine)
         .animation(.easeOut(duration: 0.14), value: workspace.isSearchPresented)
         .background(Palette.canvas)
@@ -191,6 +228,20 @@ private struct ZoomControls: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .help(help)
+    }
+}
+
+private struct LevelNote: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.callout)
+            .monospacedDigit()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1)))
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 }
 

@@ -10,10 +10,13 @@ import Foundation
 /// plus how fresh the map is, so they never mistake the map for the code.
 public final class MCPServer: @unchecked Sendable {
     public static let protocolVersion = "2025-06-18"
+    static let supportedVersions: Set<String> = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
     private let paths: MapoPaths
     private let serverVersion: String
     private var cache: [UUID: (modified: Date, graph: Graph, search: SearchIndex)] = [:]
+    /// Fuzzy resolutions made while answering the current call.
+    private var approximate: [String] = []
 
     public init(paths: MapoPaths, version: String) {
         self.paths = paths
@@ -34,21 +37,28 @@ public final class MCPServer: @unchecked Sendable {
 
     /// One JSON-RPC message in, zero or one out. Notifications get no reply.
     public func handle(line: String) -> String? {
-        guard let data = line.data(using: .utf8),
-              let msg = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let data = line.data(using: .utf8), let parsed = try? JSONSerialization.jsonObject(with: data) else {
             return encode(["jsonrpc": "2.0", "id": NSNull(), "error": ["code": -32700, "message": "Parse error"]])
         }
+        guard let msg = parsed as? [String: Any] else {
+            // MCP 2025-06-18 removed JSON-RPC batching.
+            return encode(["jsonrpc": "2.0", "id": NSNull(), "error": ["code": -32600, "message": "Invalid Request"]])
+        }
         let id = msg["id"]
-        let method = msg["method"] as? String ?? ""
         let params = msg["params"] as? [String: Any] ?? [:]
         guard id != nil else { return nil }  // notification
+        guard let method = msg["method"] as? String else {
+            return encode(["jsonrpc": "2.0", "id": id!, "error": ["code": -32600, "message": "Invalid Request: missing method"]])
+        }
 
         let result: Any
         do {
             switch method {
             case "initialize":
+                let requested = params["protocolVersion"] as? String ?? Self.protocolVersion
                 result = [
-                    "protocolVersion": Self.protocolVersion,
+                    // Echo a version we also speak; otherwise offer our latest.
+                    "protocolVersion": Self.supportedVersions.contains(requested) ? requested : Self.protocolVersion,
                     "capabilities": ["tools": ["listChanged": false]],
                     "serverInfo": ["name": "mapo", "title": "Mapo", "version": serverVersion],
                     "instructions": Self.instructions,
@@ -60,6 +70,9 @@ public final class MCPServer: @unchecked Sendable {
             case "tools/call":
                 let name = params["name"] as? String ?? ""
                 let args = params["arguments"] as? [String: Any] ?? [:]
+                guard Self.tools.contains(where: { $0["name"] as? String == name }) else {
+                    throw RPCError(code: -32602, message: "Unknown tool: \(name)")
+                }
                 do {
                     let text = try call(name, args)
                     result = ["content": [["type": "text", "text": text]], "isError": false]
@@ -131,6 +144,7 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     func call(_ name: String, _ a: [String: Any]) throws -> String {
+        approximate = []
         if name == "mapo_projects" { return try listProjects() }
         let (project, graph, search) = try load(a["project"] as? String)
         var out: String
@@ -185,7 +199,8 @@ public final class MCPServer: @unchecked Sendable {
         default:
             throw ToolError(message: "Unknown tool: \(name)")
         }
-        return out + "\n\n" + freshness(project, graph)
+        let note = approximate.isEmpty ? "" : "note: approximate match — " + approximate.joined(separator: "; ") + ". Use the exact name or an id if this is not what you meant.\n"
+        return note + out + "\n\n" + freshness(project, graph)
     }
 
     // MARK: - Data
@@ -228,7 +243,15 @@ public final class MCPServer: @unchecked Sendable {
             throw ToolError(message: "\(project.name) has no map yet. Open Mapo and build it.")
         }
         if let c = cache[project.id], c.modified == modified { return (project, c.graph, c.search) }
-        let (graph, _) = try GraphLoader.load(from: url)
+        let graph: Graph
+        do {
+            graph = try GraphLoader.load(from: url).0
+        } catch {
+            // The engine may be rewriting the file right now: one retry.
+            Thread.sleep(forTimeInterval: 0.5)
+            graph = try GraphLoader.load(from: url).0
+        }
+        if cache.count >= 4, let oldest = cache.keys.first { cache[oldest] = nil }
         let search = SearchIndex(graph: graph)
         cache[project.id] = (modified, graph, search)
         return (project, graph, search)
@@ -239,6 +262,9 @@ public final class MCPServer: @unchecked Sendable {
         let hits = search.search(ref, limit: 5)
         let exact = hits.first { graph.nodes[$0.position].name == ref || graph.nodes[$0.position].label == ref }
         guard let hit = exact ?? hits.first else { throw ToolError(message: "No symbol matches '\(ref)'. Try mapo_search.") }
+        if exact == nil {
+            approximate.append("'\(ref)' → closest match '\(graph.nodes[hit.position].name)'")
+        }
         return hit.position
     }
 

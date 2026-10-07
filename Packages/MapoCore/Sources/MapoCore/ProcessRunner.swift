@@ -24,7 +24,39 @@ public enum ProcessRunner {
         for key in ["HOME", "TMPDIR", "USER", "LOGNAME"] {
             if let v = inherited[key] { env[key] = v }
         }
+        // Any git these children run (ours, or graphify's) must never execute
+        // commands from a repository's own config: `core.fsmonitor`,
+        // hooks, … in a downloaded repo would otherwise run on open.
+        for (i, (k, v)) in gitSafety.enumerated() {
+            env["GIT_CONFIG_KEY_\(i)"] = k
+            env["GIT_CONFIG_VALUE_\(i)"] = v
+        }
+        env["GIT_CONFIG_COUNT"] = "\(gitSafety.count)"
+        env["GIT_CONFIG_NOSYSTEM"] = "1"
+        env["GIT_TERMINAL_PROMPT"] = "0"
         env.merge(extra) { _, new in new }
+        return env
+    }
+
+    /// `git -c` settings applied through the environment (see cleanEnvironment).
+    public static let gitSafety: [(String, String)] = [
+        ("core.fsmonitor", "false"),
+        ("core.hooksPath", "/dev/null"),
+        ("core.sshCommand", "false"),
+        ("protocol.ext.allow", "never"),
+        ("diff.external", ""),
+    ]
+
+    /// Adds more `GIT_CONFIG_*` pairs after the safety ones.
+    public static func appendingGitConfig(_ env: [String: String], _ pairs: [(String, String)]) -> [String: String] {
+        var env = env
+        var n = Int(env["GIT_CONFIG_COUNT"] ?? "0") ?? 0
+        for (k, v) in pairs {
+            env["GIT_CONFIG_KEY_\(n)"] = k
+            env["GIT_CONFIG_VALUE_\(n)"] = v
+            n += 1
+        }
+        env["GIT_CONFIG_COUNT"] = "\(n)"
         return env
     }
 
@@ -65,6 +97,9 @@ public enum ProcessRunner {
                 }
                 do {
                     try process.run()
+                    // Cancelled between task start and launch: onCancel ran
+                    // too early to stop anything.
+                    if Task.isCancelled { process.terminate() }
                 } catch {
                     process.terminationHandler = nil
                     outPipe.fileHandleForReading.readabilityHandler = nil

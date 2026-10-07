@@ -24,6 +24,23 @@ struct MigrationTests {
         #expect(!LegacyMigration.moveDataFolder(to: paths))
     }
 
+    @Test func clonedRepoPathsFollowTheMove() throws {
+        let s = try support()
+        let legacy = s.appendingPathComponent("Atlas")
+        try FileManager.default.createDirectory(at: legacy.appendingPathComponent("Repos/o/r"), withIntermediateDirectories: true)
+        let lib = """
+        {"version":1,"projects":[{"id":"\(UUID().uuidString)","name":"r","rootPath":"\(legacy.path)/Repos/o/r","addedAt":"2026-10-07T00:00:00Z","source":{"github":{"owner":"o","repo":"r"}}},
+         {"id":"\(UUID().uuidString)","name":"k","rootPath":"/Users/x/kontak","addedAt":"2026-10-07T00:00:00Z","source":{"folder":{}}}]}
+        """
+        try Data(lib.utf8).write(to: legacy.appendingPathComponent("library.json"))
+        let paths = MapoPaths(base: s.appendingPathComponent("Mapo"))
+        #expect(LegacyMigration.moveDataFolder(to: paths))
+        let text = try String(contentsOf: paths.libraryFile, encoding: .utf8)
+        #expect(text.contains("\(paths.base.path)/Repos/o/r"))
+        #expect(text.contains("/Users/x/kontak"))
+        #expect(!text.contains("/Atlas/"))
+    }
+
     @Test func neverOverwritesExistingMapoData() throws {
         let s = try support()
         let legacy = s.appendingPathComponent("Atlas")
@@ -69,7 +86,7 @@ struct MigrationTests {
         #expect(servers["atlas"] == nil && servers["mapo"] != nil && servers["linear"] != nil)
 
         let codex = "model = \"x\"\n\n[mcp_servers.atlas]\ncommand = \"/old\"\nargs = []\n\n[mcp_servers.linear]\nurl = \"u\"\n"
-        let out = AgentIntegrations.codexConnect(AgentIntegrations.codexRemove(codex, name: "atlas"), executable: "/new/mapo-mcp")
+        let out = try AgentIntegrations.codexConnect(AgentIntegrations.codexRemove(codex, name: "atlas"), executable: "/new/mapo-mcp")
         #expect(!out.contains("mcp_servers.atlas") && out.contains("[mcp_servers.mapo]") && out.contains("[mcp_servers.linear]"))
     }
 }

@@ -105,7 +105,16 @@ final class AppModel {
         }
         // Only projects that already have a map update by themselves; the
         // first map is always an explicit choice (it can take a while).
-        guard autoUpdate, project.lastIndex != nil else { return }
+        guard autoUpdate, let indexed = project.lastIndex else { return }
+        if change.files.isEmpty {
+            // Git-only noise (fetch rewriting FETCH_HEAD, an editor's
+            // auto-fetch): re-index only when HEAD actually moved.
+            Task {
+                guard let head = await GitInfo.head(at: project.rootURL), head.commit != indexed.commit else { return }
+                indexer.enqueue(id)
+            }
+            return
+        }
         indexer.enqueue(id)
     }
 

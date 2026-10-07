@@ -207,12 +207,34 @@ struct RepoSyncTests {
         if case .skipped = await RepoSync.update(clone, token: nil) {} else { Issue.record("ayrışmış dal güncellenmemeliydi") }
     }
 
-    @Test func tokenOnlyInEnvironment() {
+    @Test func tokenOnlyInEnvironment() throws {
         let env = RepoSync.environment(token: "ghu_SECRET")
-        #expect(env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraHeader")
-        #expect(env["GIT_CONFIG_VALUE_0"]?.hasPrefix("Authorization: Basic ") == true)
-        #expect(env["GIT_CONFIG_VALUE_0"]?.contains("ghu_SECRET") == false)
-        #expect(RepoSync.environment(token: nil)["GIT_CONFIG_COUNT"] == nil)
+        let n = try #require(Int(env["GIT_CONFIG_COUNT"] ?? ""))
+        let pairs = (0..<n).map { (env["GIT_CONFIG_KEY_\($0)"]!, env["GIT_CONFIG_VALUE_\($0)"]!) }
+        let header = try #require(pairs.first { $0.0 == "http.https://github.com/.extraHeader" })
+        #expect(header.1.hasPrefix("Authorization: Basic "))
+        #expect(!env.values.contains { $0.contains("ghu_SECRET") })
+        // Without a token: only the safety settings.
+        let plain = RepoSync.environment(token: nil)
+        #expect(plain["GIT_CONFIG_COUNT"] == "\(ProcessRunner.gitSafety.count)")
+        #expect(!plain.values.contains { $0.hasPrefix("Authorization") })
         #expect(RepoSync.redact("fatal: ghu_SECRET bad", token: "ghu_SECRET") == "fatal: ••• bad")
+    }
+
+    /// A downloaded repo whose .git/config asks git to run a program on
+    /// `git status` (core.fsmonitor) must not get to run it.
+    @Test func repoConfigCannotRunCommands() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-fsmon-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try await sh("git init -q -b main && echo 1 > a.ts && git add . && git commit -qm bir", dir)
+        let marker = dir.appendingPathComponent("PWNED")
+        let script = dir.appendingPathComponent("evil.sh")
+        try "#!/bin/sh\ntouch '\(marker.path)'\n".write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        try await sh("git config core.fsmonitor '\(script.path)'", dir)
+        _ = await GitInfo.recentlyChangedFiles(at: dir)
+        _ = await GitInfo.head(at: dir)
+        _ = await RepoSync.update(dir, token: nil)
+        #expect(!FileManager.default.fileExists(atPath: marker.path))
     }
 }

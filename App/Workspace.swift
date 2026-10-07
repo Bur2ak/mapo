@@ -84,6 +84,11 @@ final class Workspace {
     // MARK: Lifecycle
 
     func open() async {
+        // A warm workspace (switching back to a project) is already loaded.
+        if graph != nil {
+            await refreshFreshness()
+            return
+        }
         let graphURL = paths.graphFile(project.id)
         guard FileManager.default.fileExists(atPath: graphURL.path) else {
             loadState = .needsIndex
@@ -168,7 +173,8 @@ final class Workspace {
         guard let file = node.sourceFile else { return nil }
         let url = project.rootURL.appendingPathComponent(file)
         // Never resolve outside the project (e.g. `../` in a crafted graph).
-        guard url.standardizedFileURL.path.hasPrefix(project.rootURL.standardizedFileURL.path) else { return nil }
+        let root = project.rootURL.standardizedFileURL.path
+        guard url.standardizedFileURL.path.hasPrefix(root.hasSuffix("/") ? root : root + "/") else { return nil }
         return url
     }
 
@@ -189,6 +195,7 @@ final class Workspace {
             if zoom > 0 { map.zoom(zoom) }
             if let select, let id = graph?.node(select)?.id ?? search.flatMap({ _ in nil }) { self.select(id) }
             if let search, let hit = self.search?.search(search).first, let n = node(at: hit.position) { self.select(n.id) }
+            if d.bool(forKey: "mapoPalette") { isSearchPresented = true }
         }
     }
     #endif

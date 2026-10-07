@@ -48,6 +48,26 @@ struct MCPServerTests {
         }
     }
 
+    @Test func conformanceDetails() throws {
+        let (s, _) = try server()
+        let old = try rpc(s, "initialize", ["protocolVersion": "2025-03-26", "capabilities": [:], "clientInfo": ["name": "t", "version": "1"]])
+        #expect((old["result"] as? [String: Any])?["protocolVersion"] as? String == "2025-03-26")
+        let future = try rpc(s, "initialize", ["protocolVersion": "2099-01-01", "capabilities": [:], "clientInfo": ["name": "t", "version": "1"]])
+        #expect((future["result"] as? [String: Any])?["protocolVersion"] as? String == MCPServer.protocolVersion)
+        #expect(try #require(s.handle(line: "[1,2]")).contains("-32600"))
+        #expect(try #require(s.handle(line: #"{"jsonrpc":"2.0","id":9}"#)).contains("-32600"))
+        let unknown = try rpc(s, "tools/call", ["name": "yok_boyle", "arguments": [:]])
+        #expect((unknown["error"] as? [String: Any])?["code"] as? Int == -32602)
+    }
+
+    @Test func approximateMatchesAreFlagged() throws {
+        let (s, _) = try server()
+        let (fuzzy, _) = try tool(s, "mapo_callers", ["project": "deneme", "symbol": "kulupSohbet"])
+        #expect(fuzzy.hasPrefix("note: approximate match"))
+        let (exact, _) = try tool(s, "mapo_callers", ["project": "deneme", "symbol": "kulupSohbetiAc"])
+        #expect(!exact.contains("approximate"))
+    }
+
     @Test func notificationsGetNoReply() throws {
         let (s, _) = try server()
         #expect(s.handle(line: #"{"jsonrpc":"2.0","method":"notifications/initialized"}"#) == nil)
@@ -177,11 +197,11 @@ struct AgentIntegrationTests {
         A = "1"
 
         """
-        let connected = AgentIntegrations.codexConnect(original, executable: "/Applications/Mapo.app/Contents/MacOS/mapo-mcp")
+        let connected = try AgentIntegrations.codexConnect(original, executable: "/Applications/Mapo.app/Contents/MacOS/mapo-mcp")
         #expect(connected.hasPrefix(original.trimmingCharacters(in: .newlines)))
         #expect(connected.contains("[mcp_servers.mapo]\ncommand = \"/Applications/Mapo.app/Contents/MacOS/mapo-mcp\"\nargs = []"))
         // Re-connecting replaces, never duplicates.
-        let twice = AgentIntegrations.codexConnect(connected, executable: "/new/path")
+        let twice = try AgentIntegrations.codexConnect(connected, executable: "/new/path")
         #expect(twice.components(separatedBy: "[mcp_servers.mapo]").count == 2)
         #expect(twice.contains("/new/path") && !twice.contains("/Applications/Mapo.app"))
         // Disconnect restores the original content.

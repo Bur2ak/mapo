@@ -213,6 +213,15 @@ struct SearchTests {
         #expect(index.search("zzzqqq").isEmpty)
     }
 
+    @Test func testsRankBelowRealCode() {
+        let g = Graph(nodes: [
+            Node(id: "t", label: "kulup()", kind: .function, sourceFile: "apps/mobile/__tests__/kulupler.test.tsx", line: 3, community: 0),
+            Node(id: "r", label: "kulup", kind: .symbol, sourceFile: "apps/api/src/routes/kulup.ts", line: 85, community: 0),
+        ], edges: [])
+        let hits = SearchIndex(graph: g).search("kulup")
+        #expect(hits.map { g.nodes[$0.position].id } == ["r", "t"])
+    }
+
     @Test func dpPrefersBoundaryAlignment() {
         let s = Array("abcKulupSohbet")
         let (_, ranges) = SearchIndex.match(SearchIndex.fold(Array("ks")), in: SearchIndex.fold(s), boundaries: SearchIndex.boundaries(s))!

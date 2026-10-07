@@ -7,6 +7,10 @@ import Foundation
 public struct Engine: Sendable {
     public let executable: URL
     public let logDirectory: URL?
+    /// A step that prints nothing for this long is considered stuck (e.g.
+    /// reading cloud-only files) and is stopped, so one project can never
+    /// hold the whole queue.
+    public var inactivityTimeout: Duration = .seconds(15 * 60)
 
     public init(executable: URL, logDirectory: URL? = nil) {
         self.executable = executable
@@ -21,9 +25,10 @@ public struct Engine: Sendable {
         case finished
     }
 
-    public enum EngineError: Error, LocalizedError {
+    public enum EngineError: Error, LocalizedError, Equatable {
         case notFound
         case failed(step: String, status: Int32, tail: String)
+        case stalled(step: String)
 
         public var errorDescription: String? {
             switch self {
@@ -31,6 +36,8 @@ public struct Engine: Sendable {
                 return String(localized: "Analiz motoru bulunamadı.")
             case .failed(let step, let status, let tail):
                 return String(localized: "Analiz motoru hata verdi (\(step), kod \(status)).\n\(tail)")
+            case .stalled(let step):
+                return String(localized: "Analiz uzun süre ilerlemedi ve durduruldu (\(step)). Proje klasöründe yalnız iCloud'da duran dosyalar olabilir; indirip tekrar dene.")
             }
         }
     }
@@ -46,9 +53,13 @@ public struct Engine: Sendable {
             return Engine(executable: URL(fileURLWithPath: fake), logDirectory: nil)
         }
         #endif
+        // The embedded Python is arm64-only (PLAN A23): Intel Macs use a
+        // user-installed graphify instead.
+        #if arch(arm64)
         if let res = bundle.resourceURL {
             candidates.append(res.appendingPathComponent("Engine/bin/graphify"))
         }
+        #endif
         let home = fm.homeDirectoryForCurrentUser
         candidates += [
             home.appendingPathComponent(".local/bin/graphify"),
@@ -80,14 +91,17 @@ public struct Engine: Sendable {
             "GRAPHIFY_QUERY_LOG": "",
         ])
 
-        let extract = try await ProcessRunner.run(
-            executable: executable,
-            arguments: ["extract", root.path, "--code-only", "--out", output.path],
-            environment: env,
-            currentDirectory: root
-        ) { line in
-            log.write(line)
-            if let p = Self.parseProgress(line) { progress(.extracting(done: p.0, total: p.1)) }
+        let extract = try await watched(step: "extract") { touch in
+            try await ProcessRunner.run(
+                executable: executable,
+                arguments: ["extract", root.path, "--code-only", "--out", output.path],
+                environment: env,
+                currentDirectory: root
+            ) { line in
+                touch()
+                log.write(line)
+                if let p = Self.parseProgress(line) { progress(.extracting(done: p.0, total: p.1)) }
+            }
         }
         try Task.checkCancellation()
         guard extract.status == 0 else {
@@ -95,18 +109,48 @@ public struct Engine: Sendable {
         }
 
         progress(.clustering)
-        let cluster = try await ProcessRunner.run(
-            executable: executable,
-            arguments: ["cluster-only", output.path, "--no-viz"],
-            environment: env,
-            currentDirectory: output
-        ) { line in log.write(line) }
+        let cluster = try await watched(step: "cluster") { touch in
+            try await ProcessRunner.run(
+                executable: executable,
+                arguments: ["cluster-only", output.path, "--no-viz"],
+                environment: env,
+                currentDirectory: output
+            ) { line in
+                touch()
+                log.write(line)
+            }
+        }
         try Task.checkCancellation()
         guard cluster.status == 0 else {
             throw EngineError.failed(step: "cluster", status: cluster.status, tail: Self.tail(cluster))
         }
         log.write("== done")
         progress(.finished)
+    }
+
+    /// Runs `body`, cancelling it when it reports no activity for
+    /// `inactivityTimeout`.
+    func watched(
+        step: String,
+        _ body: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> ProcessRunner.Result
+    ) async throws -> ProcessRunner.Result {
+        let last = ActivityClock()
+        let limit = inactivityTimeout
+        return try await withThrowingTaskGroup(of: ProcessRunner.Result?.self) { group in
+            group.addTask { try await body { last.touch() } }
+            group.addTask {
+                while true {
+                    try await Task.sleep(for: .seconds(5))
+                    if last.idle > limit { return nil }
+                }
+            }
+            defer { group.cancelAll() }
+            while let next = try await group.next() {
+                if let result = next { return result }
+                throw EngineError.stalled(step: step)
+            }
+            throw CancellationError()
+        }
     }
 
     /// `  AST extraction: 100/562 uncached files (17%) [10 workers]` → (100, 562)
@@ -152,4 +196,11 @@ final class LogFile: @unchecked Sendable {
         _ = try? h.seekToEnd()
         try? h.write(contentsOf: data)
     }
+}
+
+final class ActivityClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last = ContinuousClock.now
+    func touch() { lock.lock(); last = .now; lock.unlock() }
+    var idle: Duration { lock.lock(); defer { lock.unlock() }; return ContinuousClock.now - last }
 }

@@ -349,9 +349,9 @@ private struct ProjectOverview: View {
                 if let graph = workspace.graph {
                     let hubs = Self.hubs(in: graph, excluding: workspace.noisyFiles)
                     if !hubs.isEmpty {
-                        OverviewSection(title: "Merkez dosyalar", help: "En çok bağlantısı olan dosyalar: değişince en çok yeri etkileyenler.") {
-                            ForEach(hubs, id: \.self) { p in
-                                FileRow(node: graph.nodes[p], trailing: "\(Self.degree(graph, p))")
+                        OverviewSection(title: "Merkez dosyalar", help: "Diğer dosyalarla en çok bağı olanlar: değişince en çok yeri etkileyenler.") {
+                            ForEach(hubs, id: \.0) { p, score in
+                                FileRow(node: graph.nodes[p], trailing: "\(score)")
                             }
                         }
                     }
@@ -364,9 +364,11 @@ private struct ProjectOverview: View {
                     }
                 }
 
-                Text("Haritada bir dosyaya tıkla ya da ⌘K ile ara.")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
+                if workspace.graph != nil {
+                    Text("Haritada bir dosyaya tıkla ya da ⌘K ile ara.")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(16)
         }
@@ -385,25 +387,28 @@ private struct ProjectOverview: View {
         return String(localized: "\(files) dosya · \(functions) fonksiyon · \(graph.edges.count) bağlantı")
     }
 
-    static func degree(_ graph: Graph, _ p: Int) -> Int {
-        graph.incoming[p].count { !isContainment(graph.edges[$0].relation) }
-            + graph.outgoing[p].count { !isContainment(graph.edges[$0].relation) }
+    /// File-to-file connections (in + out), lifted from symbol edges.
+    static func fileScores(_ graph: Graph) -> [Int: Int] {
+        let links = MapPayload.fileLinks(graph)
+        var score: [Int: Int] = [:]
+        for i in links.s.indices {
+            score[links.s[i], default: 0] += links.w[i]
+            score[links.t[i], default: 0] += links.w[i]
+        }
+        return score
     }
 
-    private static func isContainment(_ r: Relation) -> Bool { r == .contains || r == .method }
-
-    /// Most connected source files (no tests, no config / build output).
-    static func hubs(in graph: Graph, excluding noisy: Set<String>, limit: Int = 5) -> [Int] {
-        graph.nodes.indices
-            .filter { i in
-                let n = graph.nodes[i]
-                guard n.kind == .file, let f = n.sourceFile else { return false }
+    /// The files the rest of the code leans on most (no tests, config,
+    /// build output or bundles). External packages never count.
+    static func hubs(in graph: Graph, excluding noisy: Set<String>, limit: Int = 5) -> [(Int, Int)] {
+        fileScores(graph)
+            .filter { p, _ in
+                guard let f = graph.nodes[p].sourceFile else { return false }
                 return !noisy.contains(f) && !NoiseFilter.isNoise(path: f) && !MapPayload.isTestPath(f)
             }
-            .map { ($0, degree(graph, $0)) }
-            .sorted { $0.1 > $1.1 }
+            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
             .prefix(limit)
-            .map(\.0)
+            .map { ($0.key, $0.value) }
     }
 }
 

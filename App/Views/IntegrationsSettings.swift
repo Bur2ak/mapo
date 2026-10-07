@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Ayarlar → Entegrasyonlar: let coding agents query Mapo's maps (MCP).
 struct IntegrationsSettings: View {
-    @State private var connected: [AgentIntegrations.Client: Bool] = [:]
+    @State private var statuses: [AgentIntegrations.Client: AgentIntegrations.Status] = [:]
     @State private var error: String?
     private let home = FileManager.default.homeDirectoryForCurrentUser
 
@@ -46,24 +46,41 @@ struct IntegrationsSettings: View {
 
     private func row(_ client: AgentIntegrations.Client) -> some View {
         let installed = client.isInstalled(home: home)
-        let isOn = connected[client] ?? false
+        let status = statuses[client] ?? .notConnected
         return LabeledContent {
-            if isOn {
+            switch status {
+            case .connected:
                 HStack(spacing: 10) {
                     Label("Bağlı", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(Palette.fresh)
                         .labelStyle(.titleAndIcon)
                     Button("Kaldır") { apply { try AgentIntegrations.disconnect(client, home: home) } }
                 }
-            } else {
+            case .outdated:
+                HStack(spacing: 10) {
+                    Label("Eski konum", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Palette.stale)
+                        .labelStyle(.titleAndIcon)
+                    Button("Güncelle") { apply { try AgentIntegrations.connect(client, executable: executable, home: home) } }
+                }
+            case .notConnected:
                 Button("Bağla") { apply { try AgentIntegrations.connect(client, executable: executable, home: home) } }
                     .disabled(!installed)
             }
         } label: {
             Text(client.title)
-            Text(installed ? "~/\(client.configPath)" : String(localized: "Kurulu görünmüyor"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            switch status {
+            case .outdated(let command):
+                Text("Başka bir Mapo kopyasına bağlı: \(command)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+            default:
+                Text(installed ? "~/\(client.configPath)" : String(localized: "Kurulu görünmüyor"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -79,7 +96,7 @@ struct IntegrationsSettings: View {
 
     private func refresh() {
         for c in AgentIntegrations.Client.allCases {
-            connected[c] = AgentIntegrations.isConnected(c, home: home)
+            statuses[c] = AgentIntegrations.status(c, executable: executable, home: home)
         }
     }
 }

@@ -170,6 +170,21 @@ struct EngineTests {
         #expect(Engine.parseProgress("random") == nil)
     }
 
+    @Test func stalledEngineIsStopped() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-stall-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fake = dir.appendingPathComponent("graphify")
+        try "#!/bin/sh\nsleep 60\n".write(to: fake, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+        var engine = Engine(executable: fake)
+        engine.inactivityTimeout = .seconds(1)
+        let started = ContinuousClock.now
+        await #expect(throws: Engine.EngineError.stalled(step: "extract")) {
+            try await engine.index(root: dir, output: dir.appendingPathComponent("out"), logName: "t") { _ in }
+        }
+        #expect(ContinuousClock.now - started < .seconds(15))
+    }
+
     @Test func childEnvironmentHasNoAPIKeys() async throws {
         setenv("ANTHROPIC_API_KEY", "sahte-anahtar", 1)
         setenv("OPENAI_API_KEY", "sahte-anahtar", 1)

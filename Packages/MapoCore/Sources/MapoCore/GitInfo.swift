@@ -41,11 +41,25 @@ public enum GitInfo {
         !s.isEmpty && s.count <= 64 && s.allSatisfy(\.isHexDigit)
     }
 
+    /// `/usr/bin/git` is an xcode-select stub until Command Line Tools are
+    /// installed; calling it then pops the installer dialog every time.
+    public static let isAvailable: Bool = {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
+        p.arguments = ["-p"]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        p.waitUntilExit()
+        return p.terminationStatus == 0
+    }()
+
     static func git(_ args: [String], at root: URL) async -> String? {
+        guard isAvailable else { return nil }
         let result = try? await ProcessRunner.run(
             executable: URL(fileURLWithPath: "/usr/bin/git"),
             arguments: ["-C", root.path] + args,
-            environment: ProcessRunner.cleanEnvironment(extra: ["GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0"])
+            environment: ProcessRunner.cleanEnvironment(extra: ["GIT_OPTIONAL_LOCKS": "0"])
         )
         guard let result, result.status == 0 else { return nil }
         // Trailing only: porcelain status lines start with a meaningful space.

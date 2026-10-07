@@ -165,6 +165,7 @@ private struct RepositoryPicker: View {
                     if let repo = selectedRepo { add(repo) }
                 }
                 .keyboardShortcut(.defaultAction)
+                .buttonStyle(.accent)
                 .disabled(selectedRepo == nil || !model.cloning.isEmpty)
             }
             .padding(14)

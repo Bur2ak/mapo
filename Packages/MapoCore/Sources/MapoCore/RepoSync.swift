@@ -27,14 +27,10 @@ public enum RepoSync {
     }
 
     static func environment(token: String?) -> [String: String] {
-        var extra = ["GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "/usr/bin/true"]
-        if let token {
-            let basic = Data("x-access-token:\(token)".utf8).base64EncodedString()
-            extra["GIT_CONFIG_COUNT"] = "1"
-            extra["GIT_CONFIG_KEY_0"] = "http.https://github.com/.extraHeader"
-            extra["GIT_CONFIG_VALUE_0"] = "Authorization: Basic \(basic)"
-        }
-        return ProcessRunner.cleanEnvironment(extra: extra)
+        let env = ProcessRunner.cleanEnvironment(extra: ["GIT_ASKPASS": "/usr/bin/true"])
+        guard let token else { return env }
+        let basic = Data("x-access-token:\(token)".utf8).base64EncodedString()
+        return ProcessRunner.appendingGitConfig(env, [("http.https://github.com/.extraHeader", "Authorization: Basic \(basic)")])
     }
 
     /// Clones `url` into `destination` (which must not exist yet).
@@ -58,10 +54,14 @@ public enum RepoSync {
     /// `git fetch` + fast-forward only. Never touches a dirty work tree or a
     /// branch with local commits.
     public static func update(_ repo: URL, token: String?) async -> UpdateResult {
-        let env = environment(token: token)
+        // The token only accompanies the network call; local commands (and
+        // any hook they might trigger) never see it.
+        let plain = environment(token: nil)
+        let withToken = environment(token: token)
         func git(_ args: [String]) async -> ProcessRunner.Result? {
             try? await ProcessRunner.run(executable: URL(fileURLWithPath: "/usr/bin/git"),
-                                         arguments: ["-C", repo.path] + args, environment: env)
+                                         arguments: ["-C", repo.path] + args,
+                                         environment: args.first == "fetch" ? withToken : plain)
         }
         guard let status = await git(["status", "--porcelain", "--untracked-files=no"]), status.status == 0 else {
             return .skipped(reason: String(localized: "git durumu okunamadı"))

@@ -790,7 +790,8 @@ function edgeReducer(id: string, a: EdgeAttrs): Record<string, unknown> {
     } else res.hidden = true;
     return res;
   }
-  const focus = hovered ?? selected;
+  // A deliberate selection (click, search, panel) outranks a passing cursor.
+  const focus = selected ?? hovered;
   if (focus) {
     if ((s === focus || t === focus) && levelMatch) {
       res.color = theme.edgeActive;
@@ -833,7 +834,8 @@ function countVisible() {
 }
 
 function recomputeFocus() {
-  const focus = hovered ?? selected;
+  // A deliberate selection (click, search, panel) outranks a passing cursor.
+  const focus = selected ?? hovered;
   // While focused, every lit node may be named (the grid still prevents
   // overlaps); at rest the size threshold keeps big maps quiet.
   renderer?.setSetting("labelRenderedSizeThreshold", focus || isSmall() ? 0 : 7);
@@ -1066,6 +1068,7 @@ function drawOverlay() {
 function select(id: string | null, opts: { notify: boolean; fly: boolean }) {
   if (id && !graph.hasNode(id)) id = null;
   selected = id;
+  hovered = null;
   highlight = null;
   recomputeFocus();
   if (opts.notify) post({ type: "select", id });

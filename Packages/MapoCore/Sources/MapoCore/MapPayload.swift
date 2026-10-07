@@ -93,7 +93,7 @@ public struct MapPayload: Encodable, Sendable {
         self.fileLinks = Self.fileLinks(graph)
     }
 
-    static func fileLinks(_ graph: Graph) -> FileLinks {
+    public static func fileLinks(_ graph: Graph) -> FileLinks {
         var fileNode: [String: Int] = [:]
         for (i, n) in graph.nodes.enumerated() where n.kind == .file {
             if let f = n.sourceFile { fileNode[f] = i }

@@ -69,11 +69,16 @@ struct SearchPalette: View {
                     .padding(18)
             }
         }
-        .frame(width: 560)
+        .frame(maxWidth: 560)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.1)))
         .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            #if DEBUG
+            if let q = UserDefaults.standard.string(forKey: "mapoPaletteQuery") { query = q }
+            #endif
+        }
         .onChange(of: query) { _, q in
             hits = workspace.search?.search(q, limit: 60) ?? []
             cursor = 0

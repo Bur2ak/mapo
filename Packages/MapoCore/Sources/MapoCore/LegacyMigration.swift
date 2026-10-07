@@ -22,9 +22,30 @@ public enum LegacyMigration {
                 try fm.removeItem(at: paths.base)
             }
             try fm.moveItem(at: legacy, to: paths.base)
+            rewriteLibraryPaths(from: legacy.path, to: paths.base.path, library: paths.libraryFile)
             return true
         } catch {
             return false
+        }
+    }
+
+    /// Projects cloned from GitHub live under the data folder
+    /// (`…/Atlas/Repos/owner/repo`): point them at the moved location.
+    static func rewriteLibraryPaths(from old: String, to new: String, library: URL) {
+        guard let data = try? Data(contentsOf: library),
+              var root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var projects = root["projects"] as? [[String: Any]] else { return }
+        var changed = false
+        for i in projects.indices {
+            if let p = projects[i]["rootPath"] as? String, p == old || p.hasPrefix(old + "/") {
+                projects[i]["rootPath"] = new + p.dropFirst(old.count)
+                changed = true
+            }
+        }
+        guard changed else { return }
+        root["projects"] = projects
+        if let out = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
+            try? out.write(to: library, options: .atomic)
         }
     }
 
@@ -38,7 +59,9 @@ public enum LegacyMigration {
 
     /// Moves a keychain item from the old service name to the new one.
     public static func moveKeychainItem(account: String, to keychain: Keychain) {
-        guard (try? keychain.get(account: account)) == nil else { return }
+        // Only when the new item is known to be absent: a read error must
+        // not let an old token replace a newer one.
+        guard case .some(.none) = try? keychain.get(account: account) else { return }
         let old = Keychain(service: legacyBundleID)
         guard let data = try? old.get(account: account) else { return }
         do {

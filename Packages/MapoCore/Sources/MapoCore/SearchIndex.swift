@@ -32,13 +32,18 @@ public struct SearchIndex: Sendable {
             guard node.kind != .external else { return nil }
             let name = Array(node.name)
             let path = Array(node.sourceFile ?? "")
+            // Test helpers and generated/config files rank below real code
+            // with the same name (searching "kulup" should land on the route,
+            // not on a test's local `kulup` helper).
+            let file = node.sourceFile ?? ""
+            let demote = (MapPayload.isTestPath(file) || NoiseFilter.isNoise(path: file)) ? 35 : 0
             return Entry(
                 position: position,
                 name: SearchIndex.fold(name),
                 boundaries: SearchIndex.boundaries(name),
                 path: SearchIndex.fold(path),
                 pathBoundaries: SearchIndex.boundaries(path),
-                kindBonus: SearchIndex.kindBonus(node.kind)
+                kindBonus: SearchIndex.kindBonus(node.kind) - demote
             )
         }
     }

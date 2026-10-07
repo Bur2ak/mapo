@@ -145,9 +145,20 @@ final class GitHubAccount {
         try await Task.detached(priority: .userInitiated) { try k.set(data, account: a) }.value
     }
 
+    /// GitHub refresh tokens are single-use: concurrent callers must share
+    /// one refresh, or the second one fails and signs the user out.
+    @ObservationIgnored private var refreshing: Task<GitHub.Token, Error>?
+
     private func ensureFresh(_ token: GitHub.Token) async throws -> GitHub.Token {
         guard token.isExpired else { return token }
-        guard let fresh = try await auth.refresh(token) else { throw GitHub.APIError.unauthorized }
+        if let refreshing { return try await refreshing.value }
+        let task = Task { [auth] () throws -> GitHub.Token in
+            guard let fresh = try await auth.refresh(token) else { throw GitHub.APIError.unauthorized }
+            return fresh
+        }
+        refreshing = task
+        defer { refreshing = nil }
+        let fresh = try await task.value
         try await save(fresh)
         return fresh
     }
