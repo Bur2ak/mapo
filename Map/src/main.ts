@@ -70,6 +70,9 @@ let focusSet: Set<string> | null = null;
 
 /** Above this camera ratio, node labels give way to cluster labels. */
 const LABEL_RATIO = 0.5;
+/** Maps this small keep their names at every zoom. */
+const SMALL_MAP = 150;
+let visibleCount = 0;
 let cameraRatio = 1;
 
 const duration = () => (motionQuery.matches ? 0 : 450);
@@ -127,10 +130,18 @@ function build(p: Payload) {
     const base = rel === Rel.Contains ? 3 : rel === Rel.Call ? 1 : 0.5;
     g.addEdge(s, t, { rel, weight: base * (sameFolder ? 3 : 0.4) * (sameCommunity ? 2 : 1) });
   }
+  for (let i = 0; i < (p.fileLinks?.s.length ?? 0); i++) {
+    const s = p.nodes.id[p.fileLinks.s[i]], t = p.nodes.id[p.fileLinks.t[i]];
+    if (s === t) continue;
+    // Light in the layout (symbol edges already pull), visible only at file level.
+    g.addEdge(s, t, { rel: Rel.FileLink, weight: Math.min(3, Math.log2(1 + p.fileLinks.w[i])) * 0.5 });
+  }
   graph = g;
+  countVisible();
 
   const missing = placeNodes(p);
   createRenderer();
+  countVisible();
   post({ type: "loaded", nodes: g.order, edges: g.size });
 
   if (missing > 0) runLayout(missing === g.order ? "full" : "refine");
@@ -297,7 +308,7 @@ function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Recor
   const lit = highlight ? highlight.nodes.has(id) : focusSet ? focusSet.has(id) : true;
   // Semantic zoom: far out the cluster names speak; node names appear as
   // you get closer (forced labels for focus/selection still show).
-  if (!highlight && !focusSet && cameraRatio > LABEL_RATIO) res.label = "";
+  if (!highlight && !focusSet && cameraRatio > LABEL_RATIO && visibleCount > SMALL_MAP) res.label = "";
   if (!lit) {
     res.color = mix(a.baseColor, theme.canvas, 0.88);
     res.size = Math.max(1.5, a.size * 0.55);
@@ -340,7 +351,8 @@ function edgeReducer(id: string, a: EdgeAttrs): Record<string, unknown> {
   }
   const focus = hovered ?? selected;
   if (focus) {
-    if (s === focus || t === focus) {
+    const levelMatch = detail === 0 ? a.rel === Rel.FileLink : a.rel !== Rel.FileLink;
+    if ((s === focus || t === focus) && levelMatch) {
       res.color = theme.edgeActive;
       res.size = 1.2;
       res.zIndex = 1;
@@ -349,6 +361,8 @@ function edgeReducer(id: string, a: EdgeAttrs): Record<string, unknown> {
   }
   // Resting state: containment edges are structure, not information.
   if (a.rel === Rel.Contains) res.hidden = true;
+  // File level draws lifted file links; deeper levels draw the real edges.
+  if (detail === 0 ? a.rel !== Rel.FileLink : a.rel === Rel.FileLink) res.hidden = true;
   res.color = theme.edge;
   return res;
 }
@@ -363,6 +377,17 @@ function isVisible(a: NodeAttrs): boolean {
     default:
       return true;
   }
+}
+
+function countVisible() {
+  let n = 0;
+  graph.forEachNode((_, a) => {
+    if (isVisible(a)) n++;
+  });
+  visibleCount = n;
+  // Small maps name every node; big ones only nodes drawn large enough.
+  renderer?.setSetting("labelRenderedSizeThreshold", n <= SMALL_MAP ? 0 : 8);
+  renderer?.setSetting("labelDensity", n <= SMALL_MAP ? 1.4 : 0.6);
 }
 
 function recomputeFocus() {
@@ -401,7 +426,7 @@ function drawHover(
 // ---------------------------------------------------------------------------
 // Cluster labels (HTML overlay, visible when zoomed out)
 
-let clusterEls: { el: HTMLDivElement; x: number; y: number; count: number }[] = [];
+let clusterEls: { el: HTMLDivElement; x: number; y: number; count: number; minX: number; maxX: number; minY: number; maxY: number }[] = [];
 
 function updateClusterLabels(rebuild: boolean) {
   if (!renderer || !payload) return;
@@ -410,15 +435,17 @@ function updateClusterLabels(rebuild: boolean) {
   if (rebuild) {
     clusterLayer.replaceChildren();
     clusterEls = [];
-    const acc = new Map<number, { x: number; y: number; n: number }>();
+    const acc = new Map<number, { x: number; y: number; n: number; minX: number; maxX: number; minY: number; maxY: number }>();
     graph.forEachNode((_, a) => {
       if (!isVisible(a)) return;
       const gid = useCommunity ? a.community : a.folder;
-      const s = acc.get(gid) ?? { x: 0, y: 0, n: 0 };
+      const s = acc.get(gid) ?? { x: 0, y: 0, n: 0, minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
       s.x += a.x; s.y += a.y; s.n++;
+      s.minX = Math.min(s.minX, a.x); s.maxX = Math.max(s.maxX, a.x);
+      s.minY = Math.min(s.minY, a.y); s.maxY = Math.max(s.maxY, a.y);
       acc.set(gid, s);
     });
-    const minCount = Math.max(6, graph.order / 300);
+    const minCount = Math.max(3, Math.min(12, visibleCount / 40));
     const ranked = [...acc.entries()]
       .filter(([gid, s]) => s.n >= minCount && names[gid])
       .sort((a, b) => b[1].n - a[1].n)
@@ -429,18 +456,26 @@ function updateClusterLabels(rebuild: boolean) {
       el.textContent = names[gid];
       el.style.color = groupColor(gid, useCommunity);
       clusterLayer.appendChild(el);
-      clusterEls.push({ el, x: s.x / s.n, y: s.y / s.n, count: s.n });
+      clusterEls.push({ el, x: s.x / s.n, y: s.y / s.n, count: s.n, minX: s.minX, maxX: s.maxX, minY: s.minY, maxY: s.maxY });
     }
   }
   const ratio = renderer.getCamera().ratio;
-  const opacity = Math.max(0, Math.min(1, (ratio - LABEL_RATIO * 0.8) / (LABEL_RATIO * 0.6)));
+  const opacity = visibleCount <= SMALL_MAP ? 0.9 : Math.max(0, Math.min(1, (ratio - LABEL_RATIO * 0.8) / (LABEL_RATIO * 0.6)));
   clusterLayer.style.opacity = String(highlight || focusSet ? opacity * 0.2 : opacity);
   if (opacity === 0) return;
   // Biggest clusters claim their spot first; a label that would overlap an
   // already placed one is hidden rather than stacked.
   const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  // Small maps already name every node: region names sit above their region
+  // (atlas style) instead of on top of it. Large maps centre them.
+  const above = visibleCount <= SMALL_MAP;
   for (const c of clusterEls) {
-    const p = renderer.graphToViewport({ x: c.x, y: c.y });
+    let p = renderer.graphToViewport({ x: c.x, y: c.y });
+    if (above) {
+      const a = renderer.graphToViewport({ x: c.minX, y: c.minY });
+      const b = renderer.graphToViewport({ x: c.maxX, y: c.maxY });
+      p = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 26 };
+    }
     const w = c.el.offsetWidth || c.el.textContent!.length * 9, h = 20;
     const box = { x0: p.x - w / 2 - 6, y0: p.y - h / 2 - 3, x1: p.x + w / 2 + 6, y1: p.y + h / 2 + 3 };
     const hit = placed.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0);
@@ -517,6 +552,7 @@ function requiredDetail(kind: Kind): Detail {
 function raiseDetail(level: Detail) {
   if (level <= detail) return;
   detail = level;
+  countVisible();
   renderer?.refresh();
   updateClusterLabels(true);
   post({ type: "detail", value: level });
@@ -565,6 +601,7 @@ const api = {
   },
   setDetail: (d: Detail) => {
     detail = d;
+    countVisible();
     renderer?.refresh();
     updateClusterLabels(true);
   },
@@ -574,6 +611,7 @@ const api = {
   },
   setHideTests: (v: boolean) => {
     hideTests = v;
+    countVisible();
     renderer?.refresh();
     updateClusterLabels(true);
   },

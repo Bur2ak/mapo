@@ -16,6 +16,8 @@ export const enum Rel {
   Call = 1,
   Import = 2,
   Other = 3,
+  /** File ↔ file, lifted from symbol edges (Payload.fileLinks). */
+  FileLink = 4,
 }
 
 export interface Payload {
@@ -34,6 +36,7 @@ export interface Payload {
   folders: string[];
   /** Cached layout from a previous session, keyed by node id. */
   positions: Record<string, [number, number]> | null;
+  fileLinks: { s: number[]; t: number[]; w: number[] };
 }
 
 /** 0: files only · 1: + types, functions, methods · 2: everything. */

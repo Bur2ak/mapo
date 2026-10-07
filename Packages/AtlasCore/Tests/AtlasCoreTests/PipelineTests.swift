@@ -60,6 +60,23 @@ struct MapPayloadTests {
         #expect((obj["positions"] as? [String: [Double]])?["fn_ac"] == [1.5, -2])
     }
 
+    @Test func fileLinksLiftSymbolEdges() throws {
+        let g = try graph()
+        let links = MapPayload.fileLinks(g)
+        var pairs: [String: Int] = [:]
+        for i in links.s.indices {
+            pairs["\(g.nodes[links.s[i]].id)>\(g.nodes[links.t[i]].id)"] = links.w[i]
+        }
+        // kulupSohbet.ts → api.ts: import edge + kulupSohbetiAc() calls kulupOzelSohbetAc()
+        #expect(pairs["f_kulup>f_api"] == 2)
+        // [id].tsx → kulupSohbet.ts: import + KulupSayfasi calls kulupSohbetiAc
+        #expect(pairs["f_sayfa>f_kulup"] == 2)
+        // Same-file calls (kulupOzelSohbetAc → istek in api.ts) never self-link.
+        #expect(!pairs.keys.contains { $0.hasPrefix("f_api>f_api") })
+        // Containment is structure, not a dependency.
+        #expect(links.s.indices.allSatisfy { links.s[$0] != links.t[$0] })
+    }
+
     @Test func testPathDetection() {
         #expect(MapPayload.isTestPath("apps/mobile/__tests__/a.test.tsx"))
         #expect(MapPayload.isTestPath("src/foo.spec.ts"))

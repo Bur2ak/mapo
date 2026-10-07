@@ -8,6 +8,16 @@ public struct MapPayload: Encodable, Sendable {
     public let communities: [String]
     public let folders: [String]
     public let positions: [String: [Double]]?
+    /// File ↔ file links lifted from symbol-level edges (A's function calls
+    /// B's → A—B), weighted by how many symbol edges back them. Languages
+    /// without file imports (Swift modules) would otherwise show bare files.
+    public let fileLinks: FileLinks
+
+    public struct FileLinks: Encodable, Sendable, Equatable {
+        public var s: [Int] = []
+        public var t: [Int] = []
+        public var w: [Int] = []
+    }
 
     public struct Nodes: Encodable, Sendable {
         public var id: [String] = []
@@ -61,6 +71,31 @@ public struct MapPayload: Encodable, Sendable {
         self.folders = folders
         self.communities = Self.communityNames(graph)
         self.positions = positions
+        self.fileLinks = Self.fileLinks(graph)
+    }
+
+    static func fileLinks(_ graph: Graph) -> FileLinks {
+        var fileNode: [String: Int] = [:]
+        for (i, n) in graph.nodes.enumerated() where n.kind == .file {
+            if let f = n.sourceFile { fileNode[f] = i }
+        }
+        struct Pair: Hashable { let a: Int, b: Int }
+        var counts: [Pair: Int] = [:]
+        for e in graph.edges where !e.relation.isContainment {
+            guard let fa = graph.nodes[e.sourcePosition].sourceFile,
+                  let fb = graph.nodes[e.targetPosition].sourceFile,
+                  fa != fb,
+                  let a = fileNode[fa], let b = fileNode[fb]
+            else { continue }
+            counts[Pair(a: a, b: b), default: 0] += 1
+        }
+        var links = FileLinks()
+        for (pair, w) in counts.sorted(by: { ($0.key.a, $0.key.b) < ($1.key.a, $1.key.b) }) {
+            links.s.append(pair.a)
+            links.t.append(pair.b)
+            links.w.append(w)
+        }
+        return links
     }
 
     public func encoded() throws -> Data {

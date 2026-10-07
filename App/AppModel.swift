@@ -7,7 +7,9 @@ import Observation
 @Observable
 final class AppModel {
     private(set) var projects: [Project] = []
-    var selection: Project.ID?
+    var selection: Project.ID? {
+        didSet { UserDefaults.standard.set(selection?.uuidString, forKey: "lastProject") }
+    }
     /// Last user-facing error, shown as an alert.
     var alert: AlertMessage?
 
@@ -32,7 +34,11 @@ final class AppModel {
         do {
             try await library.load()
             projects = await library.projects
-            if selection == nil { selection = projects.first?.id }
+            if selection == nil {
+                // Reopen where the user left off.
+                let last = UserDefaults.standard.string(forKey: "lastProject").flatMap(UUID.init(uuidString:))
+                selection = projects.first { $0.id == last }?.id ?? projects.first?.id
+            }
         } catch {
             alert = AlertMessage(error: error)
         }

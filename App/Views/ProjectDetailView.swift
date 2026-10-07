@@ -74,8 +74,11 @@ private struct WorkspaceToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         @Bindable var map = workspace.map
-        ToolbarItem(placement: .navigation) {
-            FreshnessBadge()
+        // Only when there is something to say; an empty item still draws a capsule.
+        if workspace.graph != nil || workspace.isRefreshing {
+            ToolbarItem(placement: .navigation) {
+                FreshnessBadge()
+            }
         }
         ToolbarItemGroup(placement: .primaryAction) {
             Picker("Ayrıntı", selection: $map.detail) {
