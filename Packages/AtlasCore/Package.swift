@@ -7,9 +7,11 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "AtlasCore", targets: ["AtlasCore"]),
+        .executable(name: "atlas-mcp", targets: ["atlas-mcp"]),
     ],
     targets: [
         .target(name: "AtlasCore"),
+        .executableTarget(name: "atlas-mcp", dependencies: ["AtlasCore"]),
         .testTarget(
             name: "AtlasCoreTests",
             dependencies: ["AtlasCore"],

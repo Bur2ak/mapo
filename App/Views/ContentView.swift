@@ -31,7 +31,7 @@ struct ContentView: View {
         #if DEBUG
         .task {
             let d = UserDefaults.standard
-            if d.bool(forKey: "atlasOpenSettings") { openSettings() }
+            if d.bool(forKey: "atlasOpenSettings") || d.string(forKey: "atlasSettingsTab") != nil { openSettings() }
             if d.bool(forKey: "atlasShowGitHub") {
                 try? await Task.sleep(for: .milliseconds(600))
                 NotificationCenter.default.post(name: .showGitHubSheet, object: nil)

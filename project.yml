@@ -48,6 +48,19 @@ targets:
         type: folder
         buildPhase: resources
     postBuildScripts:
+      - name: atlas-mcp'yi göm
+        basedOnDependencyAnalysis: false
+        script: |
+          # MCP sunucusu (ajanlar için) uygulamanın yanında: Contents/MacOS/atlas-mcp
+          set -e
+          CONF=$([ "$CONFIGURATION" = "Release" ] && echo release || echo debug)
+          cd "${SRCROOT}/Packages/AtlasCore"
+          env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" HOME="$HOME" DEVELOPER_DIR="$DEVELOPER_DIR" \
+            xcrun swift build -c "$CONF" --product atlas-mcp --arch arm64 --scratch-path "${OBJROOT}/atlas-mcp" >/dev/null
+          cp "${OBJROOT}/atlas-mcp/arm64-apple-macosx/${CONF}/atlas-mcp" "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/atlas-mcp"
+          if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then
+            codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime ${OTHER_CODE_SIGN_FLAGS:-} "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/atlas-mcp"
+          fi
       - name: Gömülü motoru kopyala
         basedOnDependencyAnalysis: false
         script: |

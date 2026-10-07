@@ -3,12 +3,19 @@ import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
+    @State private var tab = UserDefaults.standard.string(forKey: "atlasSettingsTab") ?? "general"
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             GeneralSettings()
                 .tabItem { Label("Genel", systemImage: "gearshape") }
+                .tag("general")
+            IntegrationsSettings()
+                .tabItem { Label("Entegrasyonlar", systemImage: "puzzlepiece.extension") }
+                .tag("integrations")
             AboutSettings()
                 .tabItem { Label("Hakkında", systemImage: "info.circle") }
+                .tag("about")
         }
         .frame(width: 500)
         .fixedSize(horizontal: false, vertical: true)

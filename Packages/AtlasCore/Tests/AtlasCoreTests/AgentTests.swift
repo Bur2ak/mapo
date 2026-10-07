@@ -1,0 +1,203 @@
+import Foundation
+import Testing
+@testable import AtlasCore
+
+@Suite("MCP sunucusu")
+struct MCPServerTests {
+    private func server() throws -> (MCPServer, URL) {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-mcp-\(UUID().uuidString)")
+        let paths = AtlasPaths(base: base)
+        let id = UUID()
+        try FileManager.default.createDirectory(at: paths.graphFile(id).deletingLastPathComponent(), withIntermediateDirectories: true)
+        let fixture = try #require(Bundle.module.url(forResource: "kucuk", withExtension: "json", subdirectory: "Fixtures"))
+        try FileManager.default.copyItem(at: fixture, to: paths.graphFile(id))
+        let lib = """
+        {"version":1,"projects":[{"id":"\(id.uuidString)","name":"deneme","rootPath":"/tmp/deneme","addedAt":"2026-10-07T00:00:00Z","source":{"folder":{}},
+         "lastIndex":{"finishedAt":"2026-10-07T00:00:00Z","commit":"abc1234def","nodeCount":11,"edgeCount":12,"fileCount":3}}]}
+        """
+        try Data(lib.utf8).write(to: paths.libraryFile)
+        return (MCPServer(paths: paths, version: "test"), base)
+    }
+
+    private func rpc(_ s: MCPServer, _ method: String, _ params: [String: Any] = [:], id: Int = 1) throws -> [String: Any] {
+        let msg: [String: Any] = ["jsonrpc": "2.0", "id": id, "method": method, "params": params]
+        let line = String(decoding: try JSONSerialization.data(withJSONObject: msg), as: UTF8.self)
+        let reply = try #require(s.handle(line: line))
+        return try #require(try JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+    }
+
+    private func tool(_ s: MCPServer, _ name: String, _ args: [String: Any]) throws -> (String, Bool) {
+        let r = try rpc(s, "tools/call", ["name": name, "arguments": args])
+        let result = try #require(r["result"] as? [String: Any])
+        let text = ((result["content"] as? [[String: Any]])?.first?["text"] as? String) ?? ""
+        return (text, result["isError"] as? Bool ?? false)
+    }
+
+    @Test func handshakeAndToolList() throws {
+        let (s, _) = try server()
+        let init_ = try rpc(s, "initialize", ["protocolVersion": "2025-06-18", "capabilities": [:], "clientInfo": ["name": "t", "version": "1"]])
+        let result = try #require(init_["result"] as? [String: Any])
+        #expect(result["protocolVersion"] as? String == MCPServer.protocolVersion)
+        #expect((result["capabilities"] as? [String: Any])?["tools"] != nil)
+        let tools = try #require((try rpc(s, "tools/list")["result"] as? [String: Any])?["tools"] as? [[String: Any]])
+        #expect(tools.count == 8)
+        for t in tools {
+            let schema = try #require(t["inputSchema"] as? [String: Any])
+            #expect(schema["type"] as? String == "object")
+            #expect((t["annotations"] as? [String: Any])?["readOnlyHint"] as? Bool == true)
+        }
+    }
+
+    @Test func notificationsGetNoReply() throws {
+        let (s, _) = try server()
+        #expect(s.handle(line: #"{"jsonrpc":"2.0","method":"notifications/initialized"}"#) == nil)
+    }
+
+    @Test func protocolErrors() throws {
+        let (s, _) = try server()
+        let bad = try #require(s.handle(line: "{bozuk"))
+        #expect(bad.contains("-32700"))
+        let unknown = try rpc(s, "yok/boyle")
+        #expect((unknown["error"] as? [String: Any])?["code"] as? Int == -32601)
+    }
+
+    @Test func callersAndPathWithLocations() throws {
+        let (s, _) = try server()
+        let (callers, e1) = try tool(s, "atlas_callers", ["project": "deneme", "symbol": "kulupSohbetiAc"])
+        #expect(!e1)
+        #expect(callers.contains("KulupSayfasi"))
+        #expect(callers.contains("apps/mobile/app/kulupler/[id].tsx:40"))
+        #expect(callers.contains("freshness:") && callers.contains("abc1234"))
+
+        let (path, _) = try tool(s, "atlas_path", ["project": "deneme", "from": "KulupSayfasi", "to": "istek"])
+        let order = ["KulupSayfasi", "kulupSohbetiAc", "kulupOzelSohbetAc", "istek"].compactMap { path.range(of: $0)?.lowerBound }
+        #expect(order.count == 4 && order == order.sorted())
+    }
+
+    @Test func fileDependenciesAndImpact() throws {
+        let (s, _) = try server()
+        let (deps, _) = try tool(s, "atlas_file_dependencies", ["project": "deneme", "path": "kulupSohbet.ts"])
+        #expect(deps.contains("Uses:\n  apps/mobile/lib/api.ts  ×2"))
+        let (impact, _) = try tool(s, "atlas_impact", ["project": "deneme", "symbol": "istek", "depth": 2])
+        #expect(impact.contains("Distance 1") && impact.contains("kulupOzelSohbetAc"))
+        #expect(impact.contains("Distance 2") && impact.contains("kulupSohbetiAc"))
+    }
+
+    @Test func singleProjectNeedsNoName() throws {
+        let (s, _) = try server()
+        let (text, isError) = try tool(s, "atlas_search", ["query": "istek"])
+        #expect(!isError && text.contains("istek"))
+    }
+
+    @Test func toolErrorsAreReadable() throws {
+        let (s, _) = try server()
+        let (a, e1) = try tool(s, "atlas_node", ["project": "olmayan", "symbol": "x"])
+        #expect(e1 && a.contains("deneme"))
+        let (b, e2) = try tool(s, "atlas_callers", ["project": "deneme"])
+        #expect(e2 && b.contains("symbol"))
+        let (c, e3) = try tool(s, "atlas_callers", ["project": "deneme", "symbol": "zzqqxx"])
+        #expect(e3 && c.contains("atlas_search"))
+    }
+
+    @Test func mapRebuildIsPickedUp() throws {
+        let (s, base) = try server()
+        _ = try tool(s, "atlas_search", ["query": "istek"])
+        let lib = try String(contentsOf: base.appendingPathComponent("library.json"), encoding: .utf8)
+        let id = try #require(lib.range(of: #"[0-9A-F-]{36}"#, options: .regularExpression)).lowerBound
+        let uuid = String(lib[id...].prefix(36))
+        let graphURL = AtlasPaths(base: base).graphFile(UUID(uuidString: uuid)!)
+        var json = try String(contentsOf: graphURL, encoding: .utf8)
+        json = json.replacingOccurrences(of: "\"istek()\"", with: "\"yeniIstek()\"")
+        try json.write(to: graphURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: graphURL.path)
+        let (text, _) = try tool(s, "atlas_search", ["query": "yeniIstek"])
+        #expect(text.contains("yeniIstek"))
+    }
+}
+
+@Suite("Ajan entegrasyonları")
+struct AgentIntegrationTests {
+    private func home() throws -> URL {
+        let h = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-home-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: h, withIntermediateDirectories: true)
+        return h
+    }
+
+    @Test func jsonClientsPreserveOtherSettings() throws {
+        let h = try home()
+        let url = h.appendingPathComponent(".claude.json")
+        try Data(#"{"theme":"dark","mcpServers":{"linear":{"type":"http","url":"https://x"}},"projects":{"a":1}}"#.utf8).write(to: url)
+        try AgentIntegrations.connect(.claudeCode, executable: "/Applications/Atlas.app/Contents/MacOS/atlas-mcp", home: h)
+        let obj = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(obj["theme"] as? String == "dark")
+        #expect((obj["projects"] as? [String: Any])?["a"] as? Int == 1)
+        let servers = try #require(obj["mcpServers"] as? [String: Any])
+        #expect(servers["linear"] != nil)
+        #expect((servers["atlas"] as? [String: Any])?["command"] as? String == "/Applications/Atlas.app/Contents/MacOS/atlas-mcp")
+        #expect(AgentIntegrations.isConnected(.claudeCode, home: h))
+        #expect(FileManager.default.fileExists(atPath: url.path + ".atlas-backup"))
+
+        try AgentIntegrations.disconnect(.claudeCode, home: h)
+        #expect(!AgentIntegrations.isConnected(.claudeCode, home: h))
+        let after = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect((after["mcpServers"] as? [String: Any])?["linear"] != nil)
+    }
+
+    @Test func createsMissingConfig() throws {
+        let h = try home()
+        try AgentIntegrations.connect(.cursor, executable: "/x/atlas-mcp", home: h)
+        #expect(AgentIntegrations.isConnected(.cursor, home: h))
+        let mode = try FileManager.default.attributesOfItem(atPath: h.appendingPathComponent(".cursor/mcp.json").path)[.posixPermissions] as? Int
+        #expect(mode == 0o600)
+    }
+
+    @Test func refusesToClobberBrokenJSON() throws {
+        let h = try home()
+        let url = h.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{ bozuk".utf8).write(to: url)
+        #expect(throws: AgentIntegrations.IntegrationError.self) {
+            try AgentIntegrations.connect(.cursor, executable: "/x", home: h)
+        }
+        #expect(try String(contentsOf: url, encoding: .utf8) == "{ bozuk")
+    }
+
+    @Test func codexTomlKeepsEverythingElse() throws {
+        let original = """
+        model = "gpt-5"
+        service_tier = "default"
+
+        [mcp_servers.linear]
+        url = "https://mcp.linear.app/mcp"
+
+        [mcp_servers.node_repl]
+        command = "/Applications/Codex.app/Contents/Resources/node_repl"
+
+        [mcp_servers.node_repl.env]
+        A = "1"
+
+        """
+        let connected = AgentIntegrations.codexConnect(original, executable: "/Applications/Atlas.app/Contents/MacOS/atlas-mcp")
+        #expect(connected.hasPrefix(original.trimmingCharacters(in: .newlines)))
+        #expect(connected.contains("[mcp_servers.atlas]\ncommand = \"/Applications/Atlas.app/Contents/MacOS/atlas-mcp\"\nargs = []"))
+        // Re-connecting replaces, never duplicates.
+        let twice = AgentIntegrations.codexConnect(connected, executable: "/new/path")
+        #expect(twice.components(separatedBy: "[mcp_servers.atlas]").count == 2)
+        #expect(twice.contains("/new/path") && !twice.contains("/Applications/Atlas.app"))
+        // Disconnect restores the original content.
+        let removed = AgentIntegrations.codexDisconnect(twice)
+        #expect(removed.trimmingCharacters(in: .newlines) == original.trimmingCharacters(in: .newlines))
+        #expect(removed.contains("[mcp_servers.node_repl.env]\nA = \"1\""))
+    }
+
+    @Test func codexAtlasSubtablesRemoved() {
+        let text = "[mcp_servers.atlas]\ncommand = \"x\"\n\n[mcp_servers.atlas.env]\nK = \"v\"\n\n[other]\na = 1\n"
+        let out = AgentIntegrations.codexDisconnect(text)
+        #expect(!out.contains("atlas"))
+        #expect(out.contains("[other]\na = 1"))
+    }
+
+    @Test func tomlEscaping() {
+        #expect(AgentIntegrations.tomlString(#"/a "b"\c"#) == #""/a \"b\"\\c""#)
+    }
+}

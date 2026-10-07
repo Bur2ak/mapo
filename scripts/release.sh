@@ -64,6 +64,10 @@ sign "$SP/Autoupdate"
 sign "$SP/Updater.app"
 sign "$APP/Contents/Frameworks/Sparkle.framework"
 
+step "İmzalanıyor: atlas-mcp"
+[ -x "$APP/Contents/MacOS/atlas-mcp" ] || fail "atlas-mcp gömülmemiş"
+sign "$APP/Contents/MacOS/atlas-mcp"
+
 step "İmzalanıyor: Atlas.app"
 sign --entitlements App/Atlas.entitlements "$APP"
 codesign --verify --deep --strict "$APP" || fail "İmza doğrulaması başarısız"
