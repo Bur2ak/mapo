@@ -135,6 +135,11 @@ private struct WorkspaceToolbar: ToolbarContent {
             .disabled(workspace.state != .ready)
 
             Menu {
+                Picker("Görünüm", selection: $map.style) {
+                    ForEach(MapController.Style.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                Divider()
                 Picker("Renk", selection: $map.colorMode) {
                     ForEach(MapController.ColorMode.allCases) { Text($0.title).tag($0) }
                 }
@@ -143,7 +148,9 @@ private struct WorkspaceToolbar: ToolbarContent {
                 Toggle("Yapılandırma ve derleme dosyalarını göster", isOn: $map.showNoise)
                 Divider()
                 Button("Haritayı sığdır") { workspace.map.fit() }
-                Button("Yeniden yerleştir") { workspace.map.relayout() }
+                if map.style == .network {
+                    Button("Yeniden yerleştir") { workspace.map.relayout() }
+                }
             } label: {
                 Label("Görünüm", systemImage: "slider.horizontal.3")
             }
@@ -255,7 +262,7 @@ private struct MapHint: View {
             HStack(spacing: 14) {
                 hint("hand.draw", "Sürükle: kaydır")
                 hint("plus.magnifyingglass", "Kaydır: yakınlaştır")
-                hint("cursorarrow.click", "Tıkla: incele")
+                hint("cursorarrow.click", "Klasöre tıkla: içine gir")
                 hint("cursorarrow.click.2", "Çift tıkla: editörde aç")
                 Button {
                     dismissed = true

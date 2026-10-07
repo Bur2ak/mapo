@@ -4,12 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --minify --format=iife --target=safari17 --outfile=../App/Resources/Map/map.js && cp src/index.html src/map.css ../App/Resources/Map/",
-    "dev": "esbuild src/main.ts --bundle --format=iife --target=safari17 --sourcemap=inline --outfile=../App/Resources/Map/map.js && cp src/index.html src/map.css ../App/Resources/Map/",
+    "build": "esbuild src/main.ts --bundle --minify --format=iife --target=safari17 --outfile=../App/Resources/Map/map.js && esbuild src/pack.ts --bundle --minify --format=iife --target=safari17 --outfile=../App/Resources/Map/pack.js && cp src/index.html src/pack.html src/map.css src/pack.css ../App/Resources/Map/",
+    "dev": "esbuild src/main.ts --bundle --sourcemap=inline --format=iife --target=safari17 --outfile=../App/Resources/Map/map.js && esbuild src/pack.ts --bundle --sourcemap=inline --format=iife --target=safari17 --outfile=../App/Resources/Map/pack.js && cp src/index.html src/pack.html src/map.css src/pack.css ../App/Resources/Map/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@sigma/node-border": "3.0.0",
+    "d3-hierarchy": "3.1.2",
     "graphology": "0.25.4",
     "graphology-layout": "0.6.1",
     "graphology-layout-forceatlas2": "0.10.1",
@@ -17,6 +18,7 @@
     "sigma": "3.0.3"
   },
   "devDependencies": {
+    "@types/d3-hierarchy": "3.1.7",
     "esbuild": "0.25.12",
     "graphology-types": "0.24.8",
     "typescript": "5.9.3"

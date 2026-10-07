@@ -339,9 +339,9 @@ private struct ProjectOverview: View {
                 }
 
                 if !workspace.map.groups.isEmpty {
-                    OverviewSection(title: workspace.map.groupsMode == .folder ? "Bölgeler" : "Modüller") {
+                    OverviewSection(title: legendTitle) {
                         ForEach(workspace.map.groups) { group in
-                            LegendRow(group: group, unit: workspace.map.groupsMode == .folder ? "dosya" : "öğe")
+                            LegendRow(group: group, unit: "dosya")
                         }
                     }
                 }
@@ -378,6 +378,14 @@ private struct ProjectOverview: View {
             changed = graph.nodes.indices.filter {
                 graph.nodes[$0].kind == .file && (graph.nodes[$0].sourceFile.map(files.contains) ?? false)
             }
+        }
+    }
+
+    private var legendTitle: LocalizedStringKey {
+        switch workspace.map.groupsMode {
+        case .folder: "Bölgeler"
+        case .recency: "Son değişiklik"
+        case .coupling: "Bağlantı yoğunluğu"
         }
     }
 
@@ -443,7 +451,7 @@ private struct LegendRow: View {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(group.color)
                     .frame(width: 10, height: 10)
-                Text(group.id < 0 ? String(localized: "Diğer") : group.name)
+                Text(group.name.isEmpty ? String(localized: "Diğer") : group.name)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .foregroundStyle(group.id < 0 ? .secondary : .primary)

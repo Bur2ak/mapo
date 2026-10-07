@@ -32,6 +32,14 @@ export interface Payload {
     degree: number[];
     sub: number[];
     noise: (0 | 1)[];
+    /** Repo-relative path ("" for externals). */
+    path?: string[];
+    /** File a symbol lives in (-1 for files / externals). */
+    owner?: number[];
+    /** Lines of code (files). */
+    lines?: number[];
+    /** Days since last change in git (files, -1 unknown). */
+    age?: number[];
   };
   edges: { s: number[]; t: number[]; r: Rel[] };
   communities: string[];
@@ -44,7 +52,7 @@ export interface Payload {
 
 /** 0: files only · 1: + types, functions, methods · 2: everything. */
 export type Detail = 0 | 1 | 2;
-export type ColorMode = "community" | "folder";
+export type ColorMode = "folder" | "recency" | "coupling" | "community";
 
 export type Outgoing =
   | { type: "ready" }

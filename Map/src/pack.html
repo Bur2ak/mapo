@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' mapo:; script-src 'self' mapo:; style-src 'self' mapo: 'unsafe-inline'; connect-src mapo:; img-src mapo: data:">
+<title>Mapo Harita</title>
+<link rel="stylesheet" href="map.css">
+<link rel="stylesheet" href="pack.css">
+</head>
+<body>
+<canvas id="pack" role="application" aria-label="Kod haritası"></canvas>
+<div id="tip" hidden></div>
+<nav id="crumbs" aria-label="Konum" hidden></nav>
+<div id="status" role="status" hidden></div>
+<script src="pack.js"></script>
+</body>
+</html>

@@ -33,6 +33,14 @@ public struct MapPayload: Encodable, Sendable {
         public var sub: [Int] = []
         /// Generated / minified / config files, hidden by default.
         public var noise: [Int] = []
+        /// Repo-relative source path ("" for externals).
+        public var path: [String] = []
+        /// Index of the file a symbol lives in (-1 for files / externals).
+        public var owner: [Int] = []
+        /// Lines of code, files only (0 otherwise).
+        public var lines: [Int] = []
+        /// Days since the file last changed in git (-1 unknown).
+        public var age: [Int] = []
     }
 
     public struct Edges: Encodable, Sendable {
@@ -41,7 +49,13 @@ public struct MapPayload: Encodable, Sendable {
         public var r: [Int] = []
     }
 
-    public init(graph: Graph, positions: [String: [Double]]? = nil, noisyFiles: Set<String> = []) {
+    public init(
+        graph: Graph,
+        positions: [String: [Double]]? = nil,
+        noisyFiles: Set<String> = [],
+        lineCounts: [String: Int] = [:],
+        ages: [String: Int] = [:]
+    ) {
         var nodes = Nodes()
         // Unique files: grouping weighs folders by files, not by how many
         // symbols they happen to declare.
@@ -71,6 +85,10 @@ public struct MapPayload: Encodable, Sendable {
             nodes.sub.append(subIndex[subKey]!)
             nodes.noise.append(n.sourceFile.map { noisyFiles.contains($0) || NoiseFilter.isNoise(path: $0) } == true ? 1 : 0)
             nodes.test.append(n.sourceFile.map(Self.isTestPath) == true ? 1 : 0)
+            nodes.path.append(n.kind == .external ? "" : (n.sourceFile ?? ""))
+            nodes.owner.append(n.kind == .file || n.kind == .external ? -1 : Self.owningFile(graph, i) ?? -1)
+            nodes.lines.append(n.kind == .file ? (n.sourceFile.flatMap { lineCounts[$0] } ?? 0) : 0)
+            nodes.age.append(n.kind == .file ? (n.sourceFile.flatMap { ages[$0] } ?? -1) : -1)
             let degree = graph.outgoing[i].count(where: { !graph.edges[$0].relation.isContainment })
                 + graph.incoming[i].count(where: { !graph.edges[$0].relation.isContainment })
             nodes.degree.append(degree)
@@ -91,6 +109,17 @@ public struct MapPayload: Encodable, Sendable {
         self.communities = Self.communityNames(graph)
         self.positions = positions
         self.fileLinks = Self.fileLinks(graph)
+    }
+
+    /// Walks containment upward (method → type → file).
+    static func owningFile(_ graph: Graph, _ position: Int) -> Int? {
+        var cur = position
+        for _ in 0..<8 {
+            guard let p = graph.parent(of: cur) else { return nil }
+            if graph.nodes[p].kind == .file { return p }
+            cur = p
+        }
+        return nil
     }
 
     public static func fileLinks(_ graph: Graph) -> FileLinks {

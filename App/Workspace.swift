@@ -112,6 +112,7 @@ final class Workspace {
         let layoutURL = layoutFile
         let rootPath = project.rootPath
         do {
+            let ages = await GitInfo.fileAges(at: URL(fileURLWithPath: rootPath, isDirectory: true))
             let (graph, search, data, minifiedFiles) = try await Task.detached(priority: .userInitiated) {
                 let (graph, _) = try GraphLoader.load(from: graphURL)
                 let positions = (try? Data(contentsOf: layoutURL)).flatMap {
@@ -121,7 +122,13 @@ final class Workspace {
                 let minified = Set(graph.nodes.lazy.filter { $0.kind == .file }.compactMap(\.sourceFile).filter {
                     NoiseFilter.looksMinified(root.appendingPathComponent($0))
                 })
-                let data = try MapPayload(graph: graph, positions: positions, noisyFiles: minified).encoded()
+                // Circle sizes are lines of code: read once, off the main actor.
+                var lines: [String: Int] = [:]
+                for path in Set(graph.nodes.lazy.filter { $0.kind == .file }.compactMap(\.sourceFile)) {
+                    lines[path] = Self.lineCount(root.appendingPathComponent(path))
+                }
+                let data = try MapPayload(graph: graph, positions: positions, noisyFiles: minified,
+                                          lineCounts: lines, ages: ages).encoded()
                 return (graph, SearchIndex(graph: graph), data, minified)
             }.value
             self.graph = graph
@@ -137,6 +144,16 @@ final class Workspace {
         } catch {
             loadState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
+    }
+
+    /// Newline count (files over 8 MB count as large, not read).
+    nonisolated static func lineCount(_ url: URL) -> Int {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? Int else { return 0 }
+        guard size < 8_000_000, let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return size / 40 }
+        var n = 0
+        data.withUnsafeBytes { raw in for b in raw where b == 0x0A { n += 1 } }
+        return data.last == 0x0A || data.isEmpty ? n : n + 1
     }
 
     func refreshFreshness() async {
@@ -179,7 +196,7 @@ final class Workspace {
     }
 
     #if DEBUG
-    /// Visual QA harness: `-mapoDetail 1 -mapoZoom 2.5 -mapoSelect <id> -mapoSearch <q>`
+    /// Visual QA harness: `-mapoDetail 1 -mapoZoom 2.5 -mapoGroup 0 -mapoHideTests YES -mapoSelect <id> -mapoSearch <q>`
     /// puts the map in a given state on launch, so screenshots never depend
     /// on synthesized clicks reaching the window.
     private func applyScreenshotArguments() {
@@ -187,12 +204,15 @@ final class Workspace {
         if d.object(forKey: "mapoDetail") != nil, let level = MapController.Detail(rawValue: d.integer(forKey: "mapoDetail")) {
             map.detail = level
         }
+        if let c = d.string(forKey: "mapoColor"), let mode = MapController.ColorMode(rawValue: c) { map.colorMode = mode }
+        if d.bool(forKey: "mapoHideTests") { map.hideTests = true }
         let zoom = d.double(forKey: "mapoZoom")
         let select = d.string(forKey: "mapoSelect")
         let search = d.string(forKey: "mapoSearch")
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.2))
             if zoom > 0 { map.zoom(zoom) }
+            if d.object(forKey: "mapoGroup") != nil { map.focusGroup(d.integer(forKey: "mapoGroup")) }
             if let select, let id = graph?.node(select)?.id ?? search.flatMap({ _ in nil }) { self.select(id) }
             if let search, let hit = self.search?.search(search).first, let n = node(at: hit.position) { self.select(n.id) }
             if d.bool(forKey: "mapoPalette") { isSearchPresented = true }

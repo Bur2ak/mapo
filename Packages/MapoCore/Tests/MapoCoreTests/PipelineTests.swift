@@ -38,6 +38,23 @@ struct MapPayloadTests {
         #expect(rels[.references] == 3)
     }
 
+    @Test func pathOwnerLinesAndAge() throws {
+        let g = try graph()
+        let p = MapPayload(graph: g, lineCounts: ["apps/mobile/lib/api.ts": 480], ages: ["apps/mobile/lib/api.ts": 3])
+        let n = g.nodes.count
+        #expect([p.nodes.path.count, p.nodes.owner.count, p.nodes.lines.count, p.nodes.age.count].allSatisfy { $0 == n })
+        let api = try #require(g.position(of: "f_api"))
+        let ozel = try #require(g.position(of: "fn_ozel"))
+        let ext = try #require(g.position(of: "ext_react"))
+        #expect(p.nodes.path[api] == "apps/mobile/lib/api.ts")
+        #expect(p.nodes.lines[api] == 480 && p.nodes.age[api] == 3)
+        #expect(p.nodes.owner[ozel] == api)
+        #expect(p.nodes.owner[api] == -1 && p.nodes.lines[ozel] == 0)
+        #expect(p.nodes.path[ext] == "" && p.nodes.owner[ext] == -1)
+        // A file with no git history is "unknown", not "today".
+        #expect(p.nodes.age[try #require(g.position(of: "f_kulup"))] == -1)
+    }
+
     @Test func degreeIgnoresContainment() throws {
         let g = try graph()
         let p = MapPayload(graph: g)
@@ -275,6 +292,9 @@ struct GitTests {
         #expect(await GitInfo.commitsSince(first.commit, at: dir) == 2)
         #expect(await GitInfo.commitsSince("deadbeef", at: dir) == nil)
         #expect(await GitInfo.commitsSince("; rm -rf /", at: dir) == nil)
+
+        let ages = await GitInfo.fileAges(at: dir)
+        #expect(ages["a.txt"] == 0 && ages["c.txt"] == 0)
 
         try await sh("echo x > a.txt && echo y > yeni.txt", in: dir)
         let changed = await GitInfo.recentlyChangedFiles(at: dir, commits: 1)

@@ -37,6 +37,25 @@ public enum GitInfo {
         return files
     }
 
+    /// Days since each file last changed: newest commit touching it among the
+    /// last `commits`, or 0 for uncommitted edits. Files older than that
+    /// window are absent (shown as "older").
+    public static func fileAges(at root: URL, commits: Int = 400, now: Date = .now) async -> [String: Int] {
+        var ages: [String: Int] = [:]
+        if let log = await git(["log", "-\(commits)", "--name-only", "--no-renames", "--pretty=format:@%ct"], at: root) {
+            var stamp: Date?
+            for line in log.split(separator: "\n", omittingEmptySubsequences: true) {
+                if line.hasPrefix("@"), let t = TimeInterval(line.dropFirst()) {
+                    stamp = Date(timeIntervalSince1970: t)
+                } else if let stamp, ages[String(line)] == nil {
+                    ages[String(line)] = max(0, Int(now.timeIntervalSince(stamp) / 86_400))
+                }
+            }
+        }
+        for path in await recentlyChangedFiles(at: root, commits: 0) { ages[path] = 0 }
+        return ages
+    }
+
     static func isHex(_ s: String) -> Bool {
         !s.isEmpty && s.count <= 64 && s.allSatisfy(\.isHexDigit)
     }

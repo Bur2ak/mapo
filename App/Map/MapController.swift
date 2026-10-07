@@ -31,13 +31,28 @@ final class MapController: NSObject {
         }
     }
 
-    enum ColorMode: String, CaseIterable, Identifiable {
-        case folder, community
+    /// How the map is drawn (PLAN A30). `network` is the earlier force layout,
+    /// kept for comparison.
+    enum Style: String, CaseIterable, Identifiable {
+        case circles, network
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
-            case .community: "Kümeye göre"
+            case .circles: "Daire haritası"
+            case .network: "Ağ görünümü (eski)"
+            }
+        }
+        var page: String { self == .circles ? "pack.html" : "index.html" }
+    }
+
+    enum ColorMode: String, CaseIterable, Identifiable {
+        case folder, recency, coupling
+        var id: String { rawValue }
+        var title: LocalizedStringKey {
+            switch self {
             case .folder: "Klasöre göre"
+            case .recency: "Son değişikliğe göre"
+            case .coupling: "Bağlantı yoğunluğuna göre"
             }
         }
     }
@@ -57,7 +72,16 @@ final class MapController: NSObject {
     /// 0…1 while the force layout runs, nil otherwise.
     private(set) var layoutProgress: Double?
 
-    var detail: Detail = .files {
+    var style: Style = Style(rawValue: UserDefaults.standard.string(forKey: "mapStyle") ?? "") ?? .circles {
+        didSet {
+            guard style != oldValue else { return }
+            UserDefaults.standard.set(style.rawValue, forKey: "mapStyle")
+            isReady = false
+            webView.load(URLRequest(url: URL(string: "\(MapoSchemeHandler.scheme)://app/\(style.page)")!))
+        }
+    }
+
+    var detail: Detail = .symbols {
         didSet { if !syncingFromMap { call("mapoMap.setDetail(v)", ["v": detail.rawValue]) } }
     }
     @ObservationIgnored private var syncingFromMap = false
@@ -93,7 +117,7 @@ final class MapController: NSObject {
         view.isInspectable = true
         #endif
         webView = view
-        view.load(URLRequest(url: URL(string: "\(MapoSchemeHandler.scheme)://app/index.html")!))
+        view.load(URLRequest(url: URL(string: "\(MapoSchemeHandler.scheme)://app/\(style.page)")!))
     }
 
     // MARK: Commands
