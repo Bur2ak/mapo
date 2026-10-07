@@ -7,7 +7,7 @@ import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import type { Settings } from "sigma/settings";
 
 import { DARK, LIGHT, mix, neutralColor, spreadColor, type Theme } from "./palette";
-import { drawRegions, type Bundle, type Territory } from "./regions";
+import { convexHull, drawRegions, type Bundle, type Territory } from "./regions";
 import { Kind, Rel, type ColorMode, type Detail, type GroupInfo, type Outgoing, type Payload } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -82,6 +82,8 @@ let groupNames: string[] = [];
 const SMALL_MAP = 150;
 let visibleCount = 0;
 let cameraRatio = 1;
+/** Bumped whenever node positions change (layout, refine). */
+let positionsVersion = 0;
 /** Territory disc radius in graph units (from node spacing). */
 let territoryRadius = 10;
 
@@ -185,6 +187,8 @@ function build(p: Payload, view: SavedView | null = null) {
       // New files arrived with an update: nudge everything apart so they
       // never hide under a neighbour, then remember the result.
       noverlap.assign(graph, { maxIterations: 120, settings: { margin: 3, ratio: 1, expansion: 1.05 } });
+      positionsVersion++;
+      hitGrid = null;
       renderer!.refresh();
       savePositions();
     }
@@ -262,7 +266,7 @@ async function runLayout() {
   let done = 0;
   for (const gid of groups) {
     const ids = members.get(gid)!;
-    local.set(gid, layoutCountry(ids));
+    local.set(gid, await layoutCountry(ids));
     done += ids.length;
     post({ type: "layoutProgress", value: (done / graph.order) * 0.9 });
     await yieldToUI();
@@ -280,16 +284,24 @@ async function runLayout() {
   const centres = arrange(groups.map((gid) => ({ key: String(gid), radius: local.get(gid)!.radius })), traffic, margin);
 
   // 3. Place every node: country centre + its local position.
+  if (run !== layoutRun) return;
+  const target = new Map<string, [number, number]>();
   for (const gid of groups) {
     const [cx, cy] = centres.get(String(gid))!;
-    for (const [id, [x, y]] of local.get(gid)!.pos) {
-      graph.setNodeAttribute(id, "x", cx + x);
-      graph.setNodeAttribute(id, "y", cy + y);
-    }
+    for (const [id, [x, y]] of local.get(gid)!.pos) target.set(id, [cx + x, cy + y]);
   }
-  if (run !== layoutRun) return;
+  // One batched update (per-node writes each trigger a sigma refresh).
+  graph.updateEachNodeAttributes((id, a) => {
+    const p = target.get(id);
+    if (p) { a.x = p[0]; a.y = p[1]; }
+    return a;
+  });
+  positionsVersion++;
+  hitGrid = null;
   post({ type: "layoutProgress", value: 1 });
   separateLabels();
+  positionsVersion++;
+  hitGrid = null;
   measureTerritoryRadius();
   setStatus(null);
   renderer?.refresh();
@@ -343,7 +355,7 @@ function pairKey(a: string, b: string): string {
  *    and the code level shows each file as its own small constellation.
  * Centred on 0,0; area grows with the number of files.
  */
-function layoutCountry(ids: string[]): { pos: Map<string, [number, number]>; radius: number } {
+async function layoutCountry(ids: string[]): Promise<{ pos: Map<string, [number, number]>; radius: number }> {
   const pos = new Map<string, [number, number]>();
   const inside = new Set(ids);
 
@@ -405,7 +417,10 @@ function layoutCountry(ids: string[]): { pos: Map<string, [number, number]>; rad
     list.push(id);
   }
   const provinceLayouts = new Map<string, { pos: Map<string, [number, number]>; radius: number }>();
-  for (const [p, list] of provinces) provinceLayouts.set(String(p), layoutFiles(list, footprint));
+  for (const [p, list] of provinces) {
+    provinceLayouts.set(String(p), layoutFiles(list, footprint));
+    await new Promise((r) => setTimeout(r, 0));
+  }
   const crossing = new Map<string, number>();
   for (const id of anchors) {
     const pa = String(graph.getNodeAttribute(id, "sub"));
@@ -474,11 +489,13 @@ function layoutFiles(ids: string[], footprint: Map<string, number>): { pos: Map<
   }
   const n = ids.length;
   forceAtlas2.assign(sub, {
-    iterations: n < 300 ? 500 : 250,
+    // Work budget roughly constant in n: a flat 3k-file folder must not
+    // freeze the UI for seconds.
+    iterations: n < 300 ? 500 : Math.max(60, Math.round(120_000 / n)),
     getEdgeWeight: "weight",
     settings: {
       ...forceAtlas2.inferSettings(sub),
-      barnesHutOptimize: n > 800,
+      barnesHutOptimize: n > 250,
       strongGravityMode: true,
       gravity: 0.05,
       scalingRatio: 3,
@@ -501,7 +518,7 @@ function layoutFiles(ids: string[], footprint: Map<string, number>): { pos: Map<
     const d = Math.hypot(a.x, a.y);
     if (d > target * 1.1) { a.x *= (target * 1.1) / d; a.y *= (target * 1.1) / d; }
   });
-  noverlap.assign(sub, { maxIterations: 1500, settings: { margin: Math.max(2, meanFoot * 0.2), ratio: 1, expansion: 1.1, speed: 3 } });
+  noverlap.assign(sub, { maxIterations: n > 1000 ? 300 : 1500, settings: { margin: Math.max(2, meanFoot * 0.2), ratio: 1, expansion: 1.1, speed: 3 } });
   let radius = 0;
   sub.forEachNode((id, a) => {
     pos.set(id, [a.x, a.y]);
@@ -650,6 +667,8 @@ const BorderedProgram = createNodeBorderProgram({
 });
 
 function createRenderer() {
+  appliedSettings.clear();
+  focusKey = undefined as unknown as null;
   renderer = new Sigma(graph, container, {
     renderLabels: true,
     renderEdgeLabels: false,
@@ -667,6 +686,8 @@ function createRenderer() {
     minCameraRatio: 0.02,
     maxCameraRatio: 4,
     stagePadding: 24,
+    zoomDuration: motionQuery.matches ? 0 : 250,
+    doubleClickZoomingDuration: motionQuery.matches ? 0 : 250,
     // Node sizes live in map units: they grow as you zoom in (like towns on
     // a map) and the layout's spacing matches what is drawn.
     itemSizesReference: "positions",
@@ -680,15 +701,44 @@ function createRenderer() {
 
   // Sticky hit-testing: zoomed out, files are a few pixels wide, so the
   // nearest visible node within HIT_PX counts as "under the cursor".
+  // Never while dragging the map (nodes slide under a still cursor).
   const setHover = (id: string | null) => {
     if (id === hovered) return;
     hovered = id;
     recomputeFocus();
     container.style.cursor = id ? "pointer" : "";
   };
-  renderer.on("enterNode", ({ node }) => setHover(node));
-  renderer.on("leaveNode", () => setHover(null));
-  renderer.on("moveBody", ({ event }) => setHover(nearestNode(event.x, event.y)));
+  let dragging = false;
+  let pendingMove: { x: number; y: number } | null = null;
+  renderer.on("downStage", () => (dragging = true));
+  renderer.on("downNode", () => (dragging = true));
+  renderer.on("upStage", () => (dragging = false));
+  renderer.on("upNode", () => (dragging = false));
+  renderer.on("leaveStage", () => {
+    dragging = false;
+    pendingMove = null;
+    setHover(null);
+  });
+  renderer.on("enterNode", ({ node }) => !dragging && setHover(node));
+  renderer.on("leaveNode", () => !dragging && setHover(null));
+  renderer.on("moveBody", ({ event }) => {
+    if (dragging) return;
+    const first = pendingMove === null;
+    pendingMove = { x: event.x, y: event.y };
+    if (!first) return;
+    requestAnimationFrame(() => {
+      if (pendingMove && !dragging) setHover(nearestNode(pendingMove.x, pendingMove.y));
+      pendingMove = null;
+    });
+  });
+  // GPU switch / sleep can drop the WebGL context: rebuild from scratch.
+  for (const canvas of container.querySelectorAll("canvas")) {
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      post({ type: "error", message: "WebGL context lost; reloading map" });
+      location.reload();
+    });
+  }
   renderer.on("clickNode", ({ node }) => select(node, { notify: true, fly: false }));
   renderer.on("doubleClickNode", (e) => {
     e.preventSigmaDefault();
@@ -706,7 +756,7 @@ function createRenderer() {
     e.preventSigmaDefault();
     post({ type: "open", id: near });
   });
-  renderer.on("beforeRender", () => (drawnLabels.length = 0));
+  renderer.on("beforeRender", reserveSelectedLabel);
   renderer.on("afterRender", drawOverlay);
   renderer.getCamera().on("updated", (state) => {
     const before = labelTier(cameraRatio), after = labelTier(state.ratio);
@@ -717,16 +767,47 @@ function createRenderer() {
 
 const HIT_PX = 14;
 
+/** Visible nodes bucketed by graph position, rebuilt when visibility or
+ * positions change, so hover never scans every node. */
+let hitGrid: { cell: number; cells: Map<string, string[]> } | null = null;
+
+function buildHitGrid() {
+  let minX = Infinity, maxX = -Infinity;
+  graph.forEachNode((_, a) => {
+    if (isVisible(a)) { minX = Math.min(minX, a.x); maxX = Math.max(maxX, a.x); }
+  });
+  const cell = Math.max(1, (maxX - minX) / 120);
+  const cells = new Map<string, string[]>();
+  graph.forEachNode((id, a) => {
+    if (!isVisible(a)) return;
+    const k = `${Math.floor(a.x / cell)},${Math.floor(a.y / cell)}`;
+    let list = cells.get(k);
+    if (!list) cells.set(k, (list = []));
+    list.push(id);
+  });
+  hitGrid = { cell, cells };
+}
+
 /** Closest visible node to a viewport point, if within HIT_PX. */
 function nearestNode(x: number, y: number): string | null {
   if (!renderer) return null;
-  let best: string | null = null, bestD = HIT_PX * HIT_PX;
-  graph.forEachNode((id, a) => {
-    if (!isVisible(a)) return;
-    const p = renderer!.graphToViewport({ x: a.x, y: a.y });
-    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
-    if (d < bestD) { bestD = d; best = id; }
-  });
+  if (!hitGrid) buildHitGrid();
+  const g = renderer.viewportToGraph({ x, y });
+  const edge = renderer.viewportToGraph({ x: x + HIT_PX, y });
+  const reach = Math.hypot(edge.x - g.x, edge.y - g.y);
+  const { cell, cells } = hitGrid!;
+  const span = Math.ceil(reach / cell);
+  const cx = Math.floor(g.x / cell), cy = Math.floor(g.y / cell);
+  let best: string | null = null, bestD = reach * reach;
+  for (let i = cx - span; i <= cx + span; i++) {
+    for (let j = cy - span; j <= cy + span; j++) {
+      for (const id of cells.get(`${i},${j}`) ?? []) {
+        const a = graph.getNodeAttributes(id);
+        const d = (a.x - g.x) ** 2 + (a.y - g.y) ** 2;
+        if (d < bestD) { bestD = d; best = id; }
+      }
+    }
+  }
   return best;
 }
 
@@ -759,6 +840,7 @@ function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Recor
     if (focusSet && !highlight && focusSet.size <= 24) res.forceLabel = true;
   }
   if (id === selected) {
+    res.highlighted = true;
     res.type = "bordered";
     res.borderColor = theme.accent;
     res.gapColor = theme.canvas;
@@ -827,19 +909,35 @@ function countVisible() {
     if (isVisible(a)) n++;
   });
   visibleCount = n;
-  renderer?.setSetting("labelRenderedSizeThreshold", isSmall() ? 0 : 7);
+  overlayKey = "";
+  hitGrid = null;
+  applyLabelSettings();
+}
+
+/** sigma re-processes the whole graph on every setSetting: only call it on change. */
+const appliedSettings = new Map<string, unknown>();
+function setSetting(key: "labelRenderedSizeThreshold" | "labelDensity" | "labelGridCellSize", value: number) {
+  if (!renderer || appliedSettings.get(key) === value) return;
+  appliedSettings.set(key, value);
+  renderer.setSetting(key, value);
+}
+
+function applyLabelSettings() {
+  const focus = selected ?? hovered;
   // Small maps: every name (overlaps were resolved by separateLabels).
-  renderer?.setSetting("labelDensity", isSmall() ? 100 : 1.6);
-  renderer?.setSetting("labelGridCellSize", isSmall() ? 10 : 70);
+  // While focused, every lit node may be named; at rest big maps stay quiet.
+  setSetting("labelRenderedSizeThreshold", focus || isSmall() ? 0 : 7);
+  setSetting("labelDensity", isSmall() ? 100 : focus ? 2.5 : 1.6);
+  setSetting("labelGridCellSize", isSmall() ? 10 : 70);
 }
 
 function recomputeFocus() {
   // A deliberate selection (click, search, panel) outranks a passing cursor.
   const focus = selected ?? hovered;
-  // While focused, every lit node may be named (the grid still prevents
-  // overlaps); at rest the size threshold keeps big maps quiet.
-  renderer?.setSetting("labelRenderedSizeThreshold", focus || isSmall() ? 0 : 7);
-  renderer?.setSetting("labelDensity", isSmall() ? 100 : focus ? 2.5 : 1.6);
+  const before = focusKey;
+  focusKey = focus;
+  if (before === focus) return;
+  applyLabelSettings();
   if (!focus || !graph.hasNode(focus)) focusSet = null;
   else {
     focusSet = new Set<string>();
@@ -852,6 +950,25 @@ function recomputeFocus() {
   }
   renderer?.refresh({ skipIndexation: true });
 }
+
+/**
+ * The selected node's name always wins: its box is reserved before sigma
+ * draws any label, so neighbours step aside instead of hiding it.
+ */
+function reserveSelectedLabel() {
+  drawnLabels.length = 0;
+  if (!renderer || !selected || !graph.hasNode(selected)) return;
+  const a = graph.getNodeAttributes(selected);
+  if (!isVisible(a)) return;
+  const p = renderer.graphToViewport({ x: a.x, y: a.y });
+  const size = renderer.getNodeDisplayData(selected)?.size ?? 4;
+  const r = renderer.scaleSize(size);
+  const w = a.label.length * 7 + 6;
+  drawnLabels.push({ x0: p.x + r + 1, y0: p.y - 9, x1: p.x + r + 5 + w, y1: p.y + 9 });
+}
+
+/** The node focusSet was computed for (skip identical recomputes). */
+let focusKey: string | null = null;
 
 /** Label boxes drawn this frame (viewport px), for collision checks. */
 const drawnLabels: { x0: number; y0: number; x1: number; y1: number }[] = [];
@@ -872,7 +989,8 @@ function drawLabel(
   const w = ctx.measureText(data.label).width;
   const x = data.x + data.size + 3, y = data.y + size / 3;
   const box = { x0: x - 2, y0: data.y - size / 2 - 2, x1: x + w + 2, y1: data.y + size / 2 + 2 };
-  if (drawnLabels.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) return;
+  // The selected node's own label (marked highlighted) owns the reserved box.
+  if (!data.highlighted && drawnLabels.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) return;
   drawnLabels.push(box);
   // Halo keeps names readable over territories and edges.
   ctx.lineWidth = 3;
@@ -942,66 +1060,99 @@ const labelPool: HTMLDivElement[] = [];
 /** Measured label sizes; measuring every frame would force a layout per label. */
 const labelSize = new Map<string, [number, number]>();
 
+/** Camera-independent overlay geometry (graph coordinates). */
+interface OverlayGeometry {
+  hulls: Map<number, { x: number; y: number }[]>;
+  boxes: Map<number, { x0: number; y0: number; x1: number; y1: number }>;
+  subs: Map<number, { gid: number; x: number; y: number; ymin: number; ymax: number; n: number }>;
+  traffic: { ga: number; gb: number; w: number }[];
+}
+let overlayKey = "";
+let overlay: OverlayGeometry | null = null;
+
+function overlayGeometry(): OverlayGeometry {
+  const key = `${detail}|${hideTests}|${showNoise}|${colorMode}|${positionsVersion}|${[...groupColors.keys()].join(",")}`;
+  if (overlay && key === overlayKey) return overlay;
+  const points = new Map<number, { x: number; y: number }[]>();
+  const boxes = new Map<number, { x0: number; y0: number; x1: number; y1: number }>();
+  const subAcc = new Map<number, { gid: number; xs: number; ys: number; ymin: number; ymax: number; n: number }>();
+  graph.forEachNode((_, a) => {
+    if (!isVisible(a)) return;
+    const gid = groupOf(a);
+    if (!groupColors.has(gid)) return;
+    let list = points.get(gid);
+    if (!list) points.set(gid, (list = []));
+    list.push({ x: a.x, y: a.y });
+    const b = boxes.get(gid) ?? { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    b.x0 = Math.min(b.x0, a.x); b.x1 = Math.max(b.x1, a.x);
+    b.y0 = Math.min(b.y0, a.y); b.y1 = Math.max(b.y1, a.y);
+    boxes.set(gid, b);
+    if (payload!.subfolders[a.sub]) {
+      const s = subAcc.get(a.sub) ?? { gid, xs: 0, ys: 0, ymin: Infinity, ymax: -Infinity, n: 0 };
+      s.xs += a.x; s.ys += a.y; s.n++;
+      s.ymin = Math.min(s.ymin, a.y); s.ymax = Math.max(s.ymax, a.y);
+      subAcc.set(a.sub, s);
+    }
+  });
+  const hulls = new Map<number, { x: number; y: number }[]>();
+  for (const [gid, pts] of points) hulls.set(gid, convexHull(pts));
+  const subs = new Map<number, { gid: number; x: number; y: number; ymin: number; ymax: number; n: number }>();
+  for (const [sub, a] of subAcc) subs.set(sub, { gid: a.gid, x: a.xs / a.n, y: a.ys / a.n, ymin: a.ymin, ymax: a.ymax, n: a.n });
+
+  const pair = new Map<number, number>();
+  const N = 1 << 16;
+  graph.forEachEdge((_e, ea, _s, _t, sa, ta) => {
+    const levelMatch = detail === 0 ? ea.rel === Rel.FileLink : ea.rel !== Rel.FileLink && ea.rel !== Rel.Contains;
+    if (!levelMatch || !isVisible(sa) || !isVisible(ta)) return;
+    const ga = groupOf(sa), gb = groupOf(ta);
+    if (ga === gb || !groupColors.has(ga) || !groupColors.has(gb)) return;
+    const key = ga < gb ? ga * N + gb : gb * N + ga;
+    pair.set(key, (pair.get(key) ?? 0) + 1);
+  });
+  const total = [...pair.values()].reduce((a, b) => a + b, 0);
+  const floor = Math.max(2, total * 0.01);
+  const traffic = [...pair.entries()]
+    .filter(([, w]) => w >= floor)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 18)
+    .map(([k, w]) => ({ ga: Math.floor(k / N), gb: k % N, w }));
+
+  overlay = { hulls, boxes, subs, traffic };
+  overlayKey = key;
+  return overlay;
+}
+
 function drawOverlay() {
   if (!renderer || !payload) return;
   const toView = (x: number, y: number) => renderer!.graphToViewport({ x, y });
   const origin = toView(0, 0), unit = toView(territoryRadius, 0);
   // Padding around a country's outermost nodes: follows zoom, within taste.
   const radiusPx = Math.max(12, Math.min(36, Math.hypot(unit.x - origin.x, unit.y - origin.y)));
+  const geo = overlayGeometry();
 
-  // Collect visible nodes per coloured group, in viewport space.
-  const byGroup = new Map<number, { x: number; y: number }[]>();
-  const bySub = new Map<number, { gid: number; xs: number; ys: number; n: number; top: number }>();
+  // Only hull corners and a few centres are projected per frame.
+  const territories: Territory[] = [];
+  const centres = new Map<number, { x: number; y: number }>();
   const graphBox = new Map<number, LabelBox>();
-  graph.forEachNode((_, a) => {
-    if (!isVisible(a)) return;
-    const gid = groupOf(a);
-    if (!groupColors.has(gid)) return;
-    const p = toView(a.x, a.y);
-    let list = byGroup.get(gid);
-    if (!list) byGroup.set(gid, (list = []));
-    list.push(p);
-    const b = graphBox.get(gid) ?? { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
-    b.x0 = Math.min(b.x0, p.x); b.x1 = Math.max(b.x1, p.x);
-    b.y0 = Math.min(b.y0, p.y); b.y1 = Math.max(b.y1, p.y);
-    graphBox.set(gid, b);
-    if (!isSmall() && payload!.subfolders[a.sub]) {
-      const s = bySub.get(a.sub) ?? { gid, xs: 0, ys: 0, n: 0, top: Infinity };
-      s.xs += p.x; s.ys += p.y; s.n++;
-      s.top = Math.min(s.top, p.y);
-      bySub.set(a.sub, s);
-    }
-  });
-
-  const territories: Territory[] = [...byGroup.entries()]
-    .map(([gid, points]) => ({ color: groupColors.get(gid)!, points }));
+  for (const [gid, hull] of geo.hulls) {
+    const pts = hull.map((p) => toView(p.x, p.y));
+    territories.push({ color: groupColors.get(gid)!, points: pts });
+    const b = geo.boxes.get(gid)!;
+    const corners = [toView(b.x0, b.y0), toView(b.x1, b.y1), toView(b.x0, b.y1), toView(b.x1, b.y0)];
+    const box = {
+      x0: Math.min(...corners.map((c) => c.x)), x1: Math.max(...corners.map((c) => c.x)),
+      y0: Math.min(...corners.map((c) => c.y)), y1: Math.max(...corners.map((c) => c.y)),
+    };
+    graphBox.set(gid, box);
+    centres.set(gid, { x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 });
+  }
 
   // Ribbons between countries (big maps, at rest).
   const bundles: Bundle[] = [];
   if (!isSmall() && !focusSet && !highlight) {
-    const pair = new Map<string, number>();
-    graph.forEachEdge((_e, ea, s, t, sa, ta) => {
-      const levelMatch = detail === 0 ? ea.rel === Rel.FileLink : ea.rel !== Rel.FileLink && ea.rel !== Rel.Contains;
-      if (!levelMatch || !isVisible(sa) || !isVisible(ta)) return;
-      const ga = groupOf(sa), gb = groupOf(ta);
-      if (ga === gb || !groupColors.has(ga) || !groupColors.has(gb)) return;
-      const key = ga < gb ? `${ga}:${gb}` : `${gb}:${ga}`;
-      pair.set(key, (pair.get(key) ?? 0) + 1);
-      void s; void t;
-    });
-    const centre = (gid: number) => {
-      const pts = byGroup.get(gid)!;
-      let x = 0, y = 0;
-      for (const p of pts) { x += p.x; y += p.y; }
-      return { x: x / pts.length, y: y / pts.length };
-    };
-    const totals = [...pair.values()];
-    const floor = Math.max(2, totals.reduce((a, b) => a + b, 0) * 0.01);
-    for (const [key, w] of [...pair.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18)) {
-      if (w < floor) continue;
-      const [ga, gb] = key.split(":").map(Number);
-      if (!byGroup.has(ga) || !byGroup.has(gb)) continue;
-      bundles.push({ from: centre(ga), to: centre(gb), weight: w });
+    for (const t of geo.traffic) {
+      const a = centres.get(t.ga), b = centres.get(t.gb);
+      if (a && b) bundles.push({ from: a, to: b, weight: t.w });
     }
   }
 
@@ -1019,10 +1170,12 @@ function drawOverlay() {
     labels.push({ text: groupNames[gid], x: (b.x0 + b.x1) / 2, y: b.y0 - radiusPx - 12, color: groupColors.get(gid)!, cls: "region" });
   }
   if (!isSmall() && labelTier(cameraRatio) === 1 && !dim) {
-    for (const [sub, s] of bySub) {
+    for (const [sub, s] of geo.subs) {
       if (s.n < 4) continue;
       // Above the province, like the country names: never on top of its files.
-      labels.push({ text: payload.subfolders[sub], x: s.xs / s.n, y: s.top - 14, color: groupColors.get(s.gid)!, cls: "area" });
+      const c = toView(s.x, s.y);
+      const top = Math.min(toView(s.x, s.ymin).y, toView(s.x, s.ymax).y);
+      labels.push({ text: payload.subfolders[sub], x: c.x, y: top - 14, color: groupColors.get(s.gid)!, cls: "area" });
     }
   }
 
@@ -1067,9 +1220,17 @@ function drawOverlay() {
 
 function select(id: string | null, opts: { notify: boolean; fly: boolean }) {
   if (id && !graph.hasNode(id)) id = null;
+  if (id) {
+    // Reveal first, so the focus is computed with the edges of the level
+    // the node is shown at.
+    const attrs = graph.getNodeAttributes(id);
+    if (attrs.noise && !showNoise) setNoise(true);
+    raiseDetail(requiredDetail(attrs.kind));
+  }
   selected = id;
   hovered = null;
   highlight = null;
+  focusKey = undefined as unknown as null;
   recomputeFocus();
   if (opts.notify) post({ type: "select", id });
   if (id && opts.fly) frameNeighbourhood(id);
@@ -1112,6 +1273,7 @@ function showPath(nodeIds: string[]) {
   const edges = new Set<string>();
   for (let i = 0; i + 1 < nodeIds.length; i++) {
     const a = nodeIds[i], b = nodeIds[i + 1];
+    if (!graph.hasNode(a) || !graph.hasNode(b)) continue;
     graph.edges(a, b).concat(graph.edges(b, a)).forEach((e) => edges.add(e));
   }
   applyHighlight(nodes, edges);
@@ -1235,7 +1397,14 @@ function recolor() {
 
 const api = {
   load: (url: string, keep = false, sel: string | null = null) =>
-    load(url, keep, sel).catch((e) => post({ type: "error", message: String(e?.message ?? e) })),
+    load(url, keep, sel).catch((e) => {
+      // Never leave the previous project's regions and names on screen.
+      setStatus(null);
+      const ctx = regionCanvas.getContext("2d");
+      ctx?.clearRect(0, 0, regionCanvas.width, regionCanvas.height);
+      for (const el of labelPool) el.style.visibility = "hidden";
+      post({ type: "error", message: String(e?.message ?? e) });
+    }),
   select: (id: string | null) => select(id, { notify: false, fly: true }),
   focus: (id: string) => fly(id, 0.22),
   showPath,
@@ -1248,6 +1417,7 @@ const api = {
     if (d === detail) return;
     detail = d;
     visibilityChanged();
+    focusKey = undefined as unknown as null;
     recomputeFocus();
     fitVisible(true);
   },

@@ -43,7 +43,12 @@ tar -xzf "$WORK/$NAME" -C "$OUT"   # → $OUT/python
 PY="$OUT/python/bin/python3"
 
 echo "→ graphify ${GRAPHIFY_VERSION} kuruluyor"
-PIP_DISABLE_PIP_VERSION_CHECK=1 "$PY" -m pip install --no-compile --quiet "graphifyy==${GRAPHIFY_VERSION}"
+# Every package pinned (scripts/engine-requirements.txt), wheels only (no
+# local compilers, no Homebrew libraries), no user/global pip config.
+PIP_DISABLE_PIP_VERSION_CHECK=1 "$PY" -m pip install --isolated --no-compile --quiet \
+  --only-binary=:all: --index-url https://pypi.org/simple \
+  -r "$ROOT/scripts/engine-requirements.txt"
+"$PY" -c "import graphify" || { echo "✗ graphify kurulmadı" >&2; exit 1; }
 
 echo "→ Gereksizler temizleniyor"
 SP="$("$PY" -c 'import site; print(site.getsitepackages()[0])')"

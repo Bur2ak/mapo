@@ -61,28 +61,32 @@ export function drawRegions(canvas: HTMLCanvasElement, territories: Territory[],
 
   for (const t of territories) {
     if (t.points.length === 0) continue;
-    const visible = t.points.filter((p) => p.x > -r * 2 && p.y > -r * 2 && p.x < w + r * 2 && p.y < h + r * 2);
-    if (visible.length === 0) continue;
-    // Everything happens on the scratch canvas, then one composite: overlaps
-    // inside a territory never darken, and neighbours are never erased.
+    const hull = convexHull(t.points);
+    // Work only inside this territory's on-screen box (not the whole canvas).
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of hull) {
+      x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y);
+      x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+    }
+    const pad = r + 4;
+    const bx0 = Math.max(0, Math.floor(x0 - pad)), by0 = Math.max(0, Math.floor(y0 - pad));
+    const bx1 = Math.min(w, Math.ceil(x1 + pad)), by1 = Math.min(h, Math.ceil(y1 + pad));
+    if (bx1 <= bx0 || by1 <= by0) continue;
+    const [px, py, pw, ph] = [bx0 * dpr, by0 * dpr, (bx1 - bx0) * dpr, (by1 - by0) * dpr];
+
     s.setTransform(1, 0, 0, 1, 0, 0);
     s.globalCompositeOperation = "source-over";
     s.globalAlpha = 1;
-    s.clearRect(0, 0, scratch.width, scratch.height);
+    s.clearRect(px, py, pw, ph);
     s.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // Country shape = convex hull of its nodes, grown by `r` with round
-    // corners (stroke + fill of the hull). Layout keeps countries round, so
-    // the hull is a faithful outline.
-    const hull = convexHull(visible);
     // 1. Opaque shape slightly larger than the country = outline + interior.
     s.fillStyle = t.color;
     s.strokeStyle = t.color;
     grown(s, hull, r + 1.25);
-    // 2. Thin the interior so that, after compositing at edgeAlpha, it ends
-    //    up at fillAlpha while the 1.25 px rim keeps edgeAlpha.
+    // 2. Thin the interior so that, composited at edgeAlpha, it lands at
+    //    fillAlpha while the 1.25 px rim keeps edgeAlpha.
     m.setTransform(1, 0, 0, 1, 0, 0);
-    m.clearRect(0, 0, mask.width, mask.height);
+    m.clearRect(px, py, pw, ph);
     m.setTransform(dpr, 0, 0, dpr, 0, 0);
     m.fillStyle = "#000";
     m.strokeStyle = "#000";
@@ -90,11 +94,11 @@ export function drawRegions(canvas: HTMLCanvasElement, territories: Territory[],
     s.setTransform(1, 0, 0, 1, 0, 0);
     s.globalCompositeOperation = "destination-out";
     s.globalAlpha = 1 - fillAlpha / edgeAlpha;
-    s.drawImage(mask, 0, 0);
+    s.drawImage(mask, px, py, pw, ph, px, py, pw, ph);
     s.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // 3. Composite.
+    // 3. Composite just this box.
     ctx.globalAlpha = edgeAlpha;
-    ctx.drawImage(scratch, 0, 0, w, h);
+    ctx.drawImage(scratch, px, py, pw, ph, bx0, by0, bx1 - bx0, by1 - by0);
   }
   ctx.globalAlpha = 1;
 
