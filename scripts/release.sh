@@ -12,6 +12,10 @@
 # Hiçbir sır bu betikte yazmaz, yazdırılmaz.
 set -euo pipefail
 
+# Gövde tek fonksiyonda: bash dosyayı baştan sona okuyup öyle çalıştırır,
+# betik çalışırken düzenlenirse yarıda bozulmaz.
+main() {
+
 VERSION="${1:?Sürüm ver: bash scripts/release.sh 0.1.0}"
 PUBLISH="${2:-}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,7 +37,8 @@ step "Ön kontroller"
 [ -x Engine/dist/bin/graphify ] || fail "Gömülü motor yok: bash scripts/build-engine.sh"
 security find-identity -v -p codesigning | grep -q "$IDENTITY" || fail "Sertifika yok: $IDENTITY"
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 || fail "notarytool profili çalışmıyor: $NOTARY_PROFILE"
-[ -z "$(git status --porcelain)" ] || fail "Commit edilmemiş değişiklik var"
+python3 scripts/gen-notices.py >/dev/null || fail "Lisans bildirimleri üretilemedi"
+[ -z "$(git status --porcelain)" ] || fail "Commit edilmemiş değişiklik var (lisans bildirimleri değiştiyse commit et)"
 BUILD_NUMBER="$(git rev-list --count HEAD)"
 echo "  Atlas $VERSION ($BUILD_NUMBER), $(git rev-parse --short HEAD)"
 
@@ -113,3 +118,6 @@ if [ "$PUBLISH" = "--publish" ]; then
 fi
 
 printf "\n\033[32m✓ Atlas %s hazır: %s\033[0m\n" "$VERSION" "$DMG"
+}
+
+main "$@"

@@ -110,6 +110,8 @@ private struct UpdatesRow: View {
 }
 
 private struct AboutSettings: View {
+    @Environment(\.openWindow) private var openWindow
+
     var body: some View {
         Form {
             LabeledContent("Sürüm", value: Bundle.main.shortVersion)
@@ -120,6 +122,9 @@ private struct AboutSettings: View {
             }
             LabeledContent("Analiz motoru") {
                 Link("graphify (Apache-2.0 / MIT)", destination: URL(string: "https://github.com/Graphify-Labs/graphify")!)
+            }
+            LabeledContent("Açık kaynak") {
+                Button("Üçüncü Taraf Lisansları…") { openWindow(id: "notices") }
             }
             LabeledContent("Günlükler") {
                 Button("Finder'da Göster") {

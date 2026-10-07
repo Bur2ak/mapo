@@ -37,6 +37,11 @@ struct AtlasApp: App {
             InspectorCommands()
         }
 
+        Window("Üçüncü Taraf Lisansları", id: "notices") {
+            NoticesView()
+        }
+        .defaultSize(width: 680, height: 620)
+
         Settings {
             SettingsView()
                 .environment(model)
