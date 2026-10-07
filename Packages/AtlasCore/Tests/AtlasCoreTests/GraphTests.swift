@@ -149,6 +149,17 @@ struct QueryTests {
         }
     }
 
+    @Test func fileDependenciesAggregateSymbols() throws {
+        let (g, _) = try fixture("kucuk")
+        let deps = g.fileDependencies(of: try pos(g, "f_kulup"))
+        // kulupSohbet.ts uses api.ts twice (import + kulupSohbetiAc→kulupOzelSohbetAc)
+        #expect(deps.uses.map { g.nodes[$0.file].id } == ["f_api"])
+        #expect(deps.uses.first?.weight == 2)
+        // used by the page (import + KulupSayfasi→kulupSohbetiAc) and by apps/x.ts (references)
+        #expect(Set(deps.usedBy.map { g.nodes[$0.file].id }).contains("f_sayfa"))
+        #expect(deps.usedBy.first { g.nodes[$0.file].id == "f_sayfa" }?.weight == 2)
+    }
+
     @Test func nodesInFiles() throws {
         let (g, _) = try fixture("kucuk")
         let ids = Set(g.nodes(inFiles: ["apps/mobile/lib/api.ts"]).map { g.nodes[$0].id })

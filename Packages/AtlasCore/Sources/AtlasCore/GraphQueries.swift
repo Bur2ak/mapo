@@ -136,6 +136,36 @@ public extension Graph {
         return rings
     }
 
+    struct FileDependency: Sendable, Hashable {
+        /// Position of the other file's node.
+        public let file: Int
+        /// How many symbol-level edges back this dependency.
+        public let weight: Int
+    }
+
+    /// File-level view of a file: which other files it uses and which use
+    /// it, counting every edge from/to the file or anything it contains.
+    /// Answers "what does this file depend on" without listing 85 imported
+    /// types one by one.
+    func fileDependencies(of file: Int) -> (uses: [FileDependency], usedBy: [FileDependency]) {
+        guard let path = nodes[file].sourceFile else { return ([], []) }
+        var fileNode: [String: Int] = [:]
+        for (i, n) in nodes.enumerated() where n.kind == .file {
+            if let f = n.sourceFile { fileNode[f] = i }
+        }
+        var uses: [Int: Int] = [:], usedBy: [Int: Int] = [:]
+        for e in edges where e.relation != .contains && e.relation != .method {
+            let s = nodes[e.sourcePosition].sourceFile, t = nodes[e.targetPosition].sourceFile
+            if s == path, let t, t != path, let f = fileNode[t] { uses[f, default: 0] += 1 }
+            if t == path, let s, s != path, let f = fileNode[s] { usedBy[f, default: 0] += 1 }
+        }
+        func sorted(_ d: [Int: Int]) -> [FileDependency] {
+            d.map { FileDependency(file: $0.key, weight: $0.value) }
+                .sorted { $0.weight != $1.weight ? $0.weight > $1.weight : $0.file < $1.file }
+        }
+        return (sorted(uses), sorted(usedBy))
+    }
+
     /// Nodes whose source file is in `paths` (repo-relative), e.g. from a git diff.
     func nodes(inFiles paths: Set<String>) -> [Int] {
         nodes.indices.filter { i in

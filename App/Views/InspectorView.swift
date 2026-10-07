@@ -94,6 +94,29 @@ private struct NodeInspector: View {
 
     @ViewBuilder
     private var relations: some View {
+        if node.kind == .file {
+            fileRelations
+        } else {
+            symbolRelations
+        }
+    }
+
+    /// A file talks in files: what it uses, who uses it, what it declares.
+    @ViewBuilder
+    private var fileRelations: some View {
+        let deps = graph.fileDependencies(of: position)
+        // Config / build output is not a dependency anyone wants to read about.
+        let meaningful = { (d: Graph.FileDependency) -> Bool in
+            guard let f = graph.nodes[d.file].sourceFile else { return true }
+            return !workspace.noisyFiles.contains(f) && !NoiseFilter.isNoise(path: f)
+        }
+        FileDependencySection(title: "Kullandığı dosyalar", deps: deps.uses.filter(meaningful), graph: graph)
+        FileDependencySection(title: "Kullanan dosyalar", deps: deps.usedBy.filter(meaningful), graph: graph)
+        RelationSection(title: "İçindekiler", positions: unique(graph.children(of: position)), graph: graph)
+    }
+
+    @ViewBuilder
+    private var symbolRelations: some View {
         let callers = unique(graph.callers(of: position).map(\.node))
         let callees = unique(graph.callees(of: position).map(\.node))
         let importers = unique(graph.importers(of: position).map(\.node))
@@ -104,7 +127,7 @@ private struct NodeInspector: View {
         RelationSection(title: "Çağırdıkları", positions: callees, graph: graph)
         RelationSection(title: "İçe aktaranlar", positions: importers, graph: graph)
         RelationSection(title: "İçe aktardıkları", positions: imports, graph: graph)
-        RelationSection(title: node.kind == .file ? "İçindekiler" : "Üyeler", positions: children, graph: graph)
+        RelationSection(title: "Üyeler", positions: children, graph: graph)
         if let parent = graph.parent(of: position), graph.nodes[parent].kind != .file || node.kind != .file {
             RelationSection(title: "Tanımlandığı yer", positions: [parent], graph: graph)
         }
@@ -172,9 +195,43 @@ private struct RelationSection: View {
     }
 }
 
+private struct FileDependencySection: View {
+    let title: LocalizedStringKey
+    let deps: [Graph.FileDependency]
+    let graph: Graph
+    @State private var showAll = false
+    private let limit = 10
+
+    var body: some View {
+        if !deps.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text("\(deps.count)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                ForEach(showAll ? deps : Array(deps.prefix(limit)), id: \.file) { d in
+                    RelationRow(node: graph.nodes[d.file], trailing: "\(d.weight)")
+                        .help("\(d.weight) bağlantı")
+                }
+                if deps.count > limit {
+                    Button(showAll ? "Daha az göster" : "\(deps.count - limit) tane daha") { showAll.toggle() }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                        .padding(.leading, 24)
+                }
+            }
+        }
+    }
+}
+
 private struct RelationRow: View {
     @Environment(Workspace.self) private var workspace
     let node: Node
+    var trailing: String? = nil
     @State private var hovering = false
 
     var body: some View {
@@ -188,14 +245,19 @@ private struct RelationRow: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(node.kind == .file ? node.label : node.name)
                         .lineLimit(1)
-                    if let file = node.sourceFile, node.kind != .file {
-                        Text(file.shortPath)
+                    if let file = node.sourceFile {
+                        Text(node.kind == .file ? (file as NSString).deletingLastPathComponent.shortPath : file.shortPath)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 }
                 Spacer(minLength: 0)
+                if let trailing {
+                    Text(trailing)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(.vertical, 3)
             .padding(.horizontal, 6)

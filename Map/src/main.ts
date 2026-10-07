@@ -652,24 +652,33 @@ function createRenderer() {
     edgeReducer,
   });
 
-  renderer.on("enterNode", ({ node }) => {
-    hovered = node;
+  // Sticky hit-testing: zoomed out, files are a few pixels wide, so the
+  // nearest visible node within HIT_PX counts as "under the cursor".
+  const setHover = (id: string | null) => {
+    if (id === hovered) return;
+    hovered = id;
     recomputeFocus();
-    container.style.cursor = "pointer";
-  });
-  renderer.on("leaveNode", () => {
-    hovered = null;
-    recomputeFocus();
-    container.style.cursor = "";
-  });
+    container.style.cursor = id ? "pointer" : "";
+  };
+  renderer.on("enterNode", ({ node }) => setHover(node));
+  renderer.on("leaveNode", () => setHover(null));
+  renderer.on("moveBody", ({ event }) => setHover(nearestNode(event.x, event.y)));
   renderer.on("clickNode", ({ node }) => select(node, { notify: true, fly: false }));
   renderer.on("doubleClickNode", (e) => {
     e.preventSigmaDefault();
     post({ type: "open", id: e.node });
   });
-  renderer.on("clickStage", () => {
+  renderer.on("clickStage", ({ event }) => {
+    const near = nearestNode(event.x, event.y);
+    if (near) return select(near, { notify: true, fly: false });
     if (highlight) api.clearHighlight();
     select(null, { notify: true, fly: false });
+  });
+  renderer.on("doubleClickStage", (e) => {
+    const near = nearestNode(e.event.x, e.event.y);
+    if (!near) return;
+    e.preventSigmaDefault();
+    post({ type: "open", id: near });
   });
   renderer.on("afterRender", drawOverlay);
   renderer.getCamera().on("updated", (state) => {
@@ -677,6 +686,21 @@ function createRenderer() {
     cameraRatio = state.ratio;
     if (before !== after) renderer?.refresh({ skipIndexation: true });
   });
+}
+
+const HIT_PX = 14;
+
+/** Closest visible node to a viewport point, if within HIT_PX. */
+function nearestNode(x: number, y: number): string | null {
+  if (!renderer) return null;
+  let best: string | null = null, bestD = HIT_PX * HIT_PX;
+  graph.forEachNode((id, a) => {
+    if (!isVisible(a)) return;
+    const p = renderer!.graphToViewport({ x: a.x, y: a.y });
+    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d < bestD) { bestD = d; best = id; }
+  });
+  return best;
 }
 
 /** Big maps: 0 = regions only, 1 = + sub-areas, 2 = + node names. */
@@ -703,8 +727,9 @@ function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Recor
   } else {
     res.zIndex = 1;
     if (highlight || (focusSet && (id === hovered || id === selected))) res.forceLabel = true;
-    // Neighbours of the focus are named too: that is the point of focusing.
-    if (focusSet && !highlight && focusSet.size <= 40) res.forceLabel = true;
+    // Neighbours get names through sigma's label grid (no forced pile-ups);
+    // only a handful are forced.
+    if (focusSet && !highlight && focusSet.size <= 8) res.forceLabel = true;
   }
   if (id === selected) {
     res.type = "bordered";
@@ -786,6 +811,10 @@ function countVisible() {
 
 function recomputeFocus() {
   const focus = hovered ?? selected;
+  // While focused, every lit node may be named (the grid still prevents
+  // overlaps); at rest the size threshold keeps big maps quiet.
+  renderer?.setSetting("labelRenderedSizeThreshold", focus || isSmall() ? 0 : 7);
+  renderer?.setSetting("labelDensity", isSmall() ? 100 : focus ? 1.2 : 0.7);
   if (!focus || !graph.hasNode(focus)) focusSet = null;
   else {
     focusSet = new Set<string>();
