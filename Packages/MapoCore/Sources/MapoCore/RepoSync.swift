@@ -86,8 +86,8 @@ public enum RepoSync {
         return .updated(commits: behind)
     }
 
-    /// Where Atlas clones a repository by default.
-    public static func defaultDestination(for repo: GitHub.Repository, paths: AtlasPaths) -> URL {
+    /// Where Mapo clones a repository by default.
+    public static func defaultDestination(for repo: GitHub.Repository, paths: MapoPaths) -> URL {
         paths.reposDir.appendingPathComponent(repo.owner, isDirectory: true).appendingPathComponent(repo.name, isDirectory: true)
     }
 

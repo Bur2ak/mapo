@@ -1,9 +1,9 @@
 #!/bin/bash
-# Atlas'ın gömülü analiz motorunu hazırlar: bağımsız Python + graphify (sabit sürümler).
+# Mapo'ın gömülü analiz motorunu hazırlar: bağımsız Python + graphify (sabit sürümler).
 #
 #   bash scripts/build-engine.sh
 #
-# Çıktı: Engine/dist/  (git'e girmez; derlemede Atlas.app/Contents/Resources/Engine'e kopyalanır)
+# Çıktı: Engine/dist/  (git'e girmez; derlemede Mapo.app/Contents/Resources/Engine'e kopyalanır)
 #   Engine/dist/bin/graphify   → motoru çalıştıran sarmalayıcı
 #   Engine/dist/python/        → python-build-standalone (aarch64)
 #
@@ -62,7 +62,7 @@ echo "→ Sarmalayıcı yazılıyor"
 mkdir -p "$OUT/bin"
 cat > "$OUT/bin/graphify" <<'WRAP'
 #!/bin/sh
-# Atlas gömülü motoru: ana bilgisayarın Python'una ve ortamına bağımsız.
+# Mapo gömülü motoru: ana bilgisayarın Python'una ve ortamına bağımsız.
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONNOUSERSITE=1
 export PYTHONDONTWRITEBYTECODE=1

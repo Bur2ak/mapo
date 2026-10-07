@@ -2,20 +2,20 @@ import Foundation
 
 /// Model Context Protocol server over stdio (JSON-RPC 2.0, one message per line).
 ///
-/// Exposes Atlas's maps to coding agents — Claude Code, Codex, Cursor,
+/// Exposes Mapo's maps to coding agents — Claude Code, Codex, Cursor,
 /// Claude Desktop — as read-only tools. No network: the agent spawns
-/// `atlas-mcp` and talks to it over stdin/stdout.
+/// `mapo-mcp` and talks to it over stdin/stdout.
 ///
 /// Agents get answers they can act on: real file paths and line numbers,
 /// plus how fresh the map is, so they never mistake the map for the code.
 public final class MCPServer: @unchecked Sendable {
     public static let protocolVersion = "2025-06-18"
 
-    private let paths: AtlasPaths
+    private let paths: MapoPaths
     private let serverVersion: String
     private var cache: [UUID: (modified: Date, graph: Graph, search: SearchIndex)] = [:]
 
-    public init(paths: AtlasPaths, version: String) {
+    public init(paths: MapoPaths, version: String) {
         self.paths = paths
         self.serverVersion = version
     }
@@ -50,7 +50,7 @@ public final class MCPServer: @unchecked Sendable {
                 result = [
                     "protocolVersion": Self.protocolVersion,
                     "capabilities": ["tools": ["listChanged": false]],
-                    "serverInfo": ["name": "atlas", "title": "Atlas", "version": serverVersion],
+                    "serverInfo": ["name": "mapo", "title": "Mapo", "version": serverVersion],
                     "instructions": Self.instructions,
                 ]
             case "ping":
@@ -94,31 +94,31 @@ public final class MCPServer: @unchecked Sendable {
     // MARK: - Tools
 
     static let instructions = """
-    Atlas keeps a live map of the user's codebases (files, functions, types, and who calls/imports whom), \
+    Mapo keeps a live map of the user's codebases (files, functions, types, and who calls/imports whom), \
     built locally from the source. Use it to orient before reading code: find where something lives, \
     who depends on it, and what a change may affect. Every answer includes file paths and line numbers — \
     open those files to confirm, since the map can lag the working tree by a few seconds (see `freshness`).
     """
 
     static var tools: [[String: Any]] { [
-        tool("atlas_projects", "List projects Atlas has mapped, with root path and how fresh each map is. Call this first to get a project name.", [:], []),
-        tool("atlas_search", "Fuzzy-find symbols and files by name (camelCase-aware, e.g. 'usrSvc' finds 'UserService').",
+        tool("mapo_projects", "List projects Mapo has mapped, with root path and how fresh each map is. Call this first to get a project name.", [:], []),
+        tool("mapo_search", "Fuzzy-find symbols and files by name (camelCase-aware, e.g. 'usrSvc' finds 'UserService').",
              ["project": projectProp, "query": ["type": "string", "description": "Name or fragment to find."],
               "limit": ["type": "integer", "description": "Max results (default 15)."]], ["project", "query"]),
-        tool("atlas_node", "Describe one symbol or file: kind, location, and counts of callers/callees/importers. Accepts a name or an id from another tool.",
+        tool("mapo_node", "Describe one symbol or file: kind, location, and counts of callers/callees/importers. Accepts a name or an id from another tool.",
              ["project": projectProp, "symbol": symbolProp], ["project", "symbol"]),
-        tool("atlas_callers", "Who calls this function or method.", ["project": projectProp, "symbol": symbolProp], ["project", "symbol"]),
-        tool("atlas_callees", "What this function or method calls.", ["project": projectProp, "symbol": symbolProp], ["project", "symbol"]),
-        tool("atlas_file_dependencies", "For a file: which files it uses and which files use it, with edge counts.",
+        tool("mapo_callers", "Who calls this function or method.", ["project": projectProp, "symbol": symbolProp], ["project", "symbol"]),
+        tool("mapo_callees", "What this function or method calls.", ["project": projectProp, "symbol": symbolProp], ["project", "symbol"]),
+        tool("mapo_file_dependencies", "For a file: which files it uses and which files use it, with edge counts.",
              ["project": projectProp, "path": ["type": "string", "description": "Repo-relative file path or file name."]], ["project", "path"]),
-        tool("atlas_path", "Shortest chain of calls/imports from A to B — how does A reach B?",
+        tool("mapo_path", "Shortest chain of calls/imports from A to B — how does A reach B?",
              ["project": projectProp, "from": symbolProp, "to": symbolProp], ["project", "from", "to"]),
-        tool("atlas_impact", "Blast radius: what may break if this symbol or file changes, grouped by distance.",
+        tool("mapo_impact", "Blast radius: what may break if this symbol or file changes, grouped by distance.",
              ["project": projectProp, "symbol": symbolProp, "depth": ["type": "integer", "description": "Rings to walk (1–4, default 2)."]],
              ["project", "symbol"]),
     ] }
 
-    private static var projectProp: [String: Any] { ["type": "string", "description": "Project name or root path, from atlas_projects."] }
+    private static var projectProp: [String: Any] { ["type": "string", "description": "Project name or root path, from mapo_projects."] }
     private static var symbolProp: [String: Any] { ["type": "string", "description": "Symbol or file name (e.g. 'kulupSohbetiAc', 'api.ts'), or a node id."] }
 
     private static func tool(_ name: String, _ description: String, _ props: [String: Any], _ required: [String]) -> [String: Any] {
@@ -131,16 +131,16 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     func call(_ name: String, _ a: [String: Any]) throws -> String {
-        if name == "atlas_projects" { return try listProjects() }
+        if name == "mapo_projects" { return try listProjects() }
         let (project, graph, search) = try load(a["project"] as? String)
         var out: String
         switch name {
-        case "atlas_search":
+        case "mapo_search":
             let q = try str(a, "query")
             let limit = min(50, max(1, a["limit"] as? Int ?? 15))
             let hits = search.search(q, limit: limit)
             out = hits.isEmpty ? "No matches for '\(q)'." : hits.map { line(graph, $0.position) }.joined(separator: "\n")
-        case "atlas_node":
+        case "mapo_node":
             let p = try resolve(try str(a, "symbol"), graph, search)
             let n = graph.nodes[p]
             out = """
@@ -148,20 +148,20 @@ public final class MCPServer: @unchecked Sendable {
             id: \(n.id)
             callers: \(graph.callers(of: p).count) · callees: \(graph.callees(of: p).count) · importers: \(graph.importers(of: p).count) · imports: \(graph.imports(of: p).count) · contains: \(graph.children(of: p).count)
             """
-        case "atlas_callers":
+        case "mapo_callers":
             let p = try resolve(try str(a, "symbol"), graph, search)
             out = list("Callers of \(graph.nodes[p].name)", unique(graph.callers(of: p).map(\.node)), graph)
-        case "atlas_callees":
+        case "mapo_callees":
             let p = try resolve(try str(a, "symbol"), graph, search)
             out = list("Called by \(graph.nodes[p].name)", unique(graph.callees(of: p).map(\.node)), graph)
-        case "atlas_file_dependencies":
+        case "mapo_file_dependencies":
             let p = try resolveFile(try str(a, "path"), graph, search)
             let deps = graph.fileDependencies(of: p)
             func fmt(_ d: [Graph.FileDependency]) -> String {
                 d.isEmpty ? "  (none)" : d.prefix(40).map { "  \(graph.nodes[$0.file].sourceFile ?? graph.nodes[$0.file].label)  ×\($0.weight)" }.joined(separator: "\n")
             }
             out = "\(graph.nodes[p].sourceFile ?? graph.nodes[p].label)\nUses:\n\(fmt(deps.uses))\nUsed by:\n\(fmt(deps.usedBy))"
-        case "atlas_path":
+        case "mapo_path":
             let from = try resolve(try str(a, "from"), graph, search)
             let to = try resolve(try str(a, "to"), graph, search)
             guard let path = graph.shortestPath(from: from, to: to) else {
@@ -173,7 +173,7 @@ public final class MCPServer: @unchecked Sendable {
                 return rel + line(graph, node)
             }
             out = (path.directed ? "Path:" : "Related (ignoring direction):") + "\n" + steps.joined(separator: "\n")
-        case "atlas_impact":
+        case "mapo_impact":
             let p = try resolve(try str(a, "symbol"), graph, search)
             let depth = min(4, max(1, a["depth"] as? Int ?? 2))
             let rings = graph.impact(of: p, maxDepth: depth)
@@ -192,7 +192,7 @@ public final class MCPServer: @unchecked Sendable {
 
     private func listProjects() throws -> String {
         let projects = try libraryProjects()
-        guard !projects.isEmpty else { return "Atlas has no projects yet. Add one in the Atlas app." }
+        guard !projects.isEmpty else { return "Mapo has no projects yet. Add one in the Mapo app." }
         return projects.map { p in
             let idx = p.lastIndex.map { "map: \($0.fileCount) files, built \(Self.iso($0.finishedAt))\($0.commit.map { " at " + $0.prefix(7) } ?? "")" } ?? "no map yet"
             return "- \(p.name) — \(p.rootPath) — \(idx)"
@@ -214,7 +214,7 @@ public final class MCPServer: @unchecked Sendable {
             let r = ref.lowercased()
             guard let p = projects.first(where: { $0.name.lowercased() == r || $0.rootPath == ref || $0.id.uuidString.lowercased() == r })
                 ?? projects.first(where: { $0.name.lowercased().contains(r) }) else {
-                throw ToolError(message: "No Atlas project matches '\(ref)'. Known: \(projects.map(\.name).joined(separator: ", "))")
+                throw ToolError(message: "No Mapo project matches '\(ref)'. Known: \(projects.map(\.name).joined(separator: ", "))")
             }
             project = p
         } else if projects.count == 1 {
@@ -225,7 +225,7 @@ public final class MCPServer: @unchecked Sendable {
         let url = paths.graphFile(project.id)
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
               let modified = attrs[.modificationDate] as? Date else {
-            throw ToolError(message: "\(project.name) has no map yet. Open Atlas and build it.")
+            throw ToolError(message: "\(project.name) has no map yet. Open Mapo and build it.")
         }
         if let c = cache[project.id], c.modified == modified { return (project, c.graph, c.search) }
         let (graph, _) = try GraphLoader.load(from: url)
@@ -238,7 +238,7 @@ public final class MCPServer: @unchecked Sendable {
         if let p = graph.position(of: ref) { return p }
         let hits = search.search(ref, limit: 5)
         let exact = hits.first { graph.nodes[$0.position].name == ref || graph.nodes[$0.position].label == ref }
-        guard let hit = exact ?? hits.first else { throw ToolError(message: "No symbol matches '\(ref)'. Try atlas_search.") }
+        guard let hit = exact ?? hits.first else { throw ToolError(message: "No symbol matches '\(ref)'. Try mapo_search.") }
         return hit.position
     }
 

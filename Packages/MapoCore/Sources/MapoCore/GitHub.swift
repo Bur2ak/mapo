@@ -1,6 +1,6 @@
 import Foundation
 
-/// GitHub sign-in (OAuth Device Flow) and the few API calls Atlas needs.
+/// GitHub sign-in (OAuth Device Flow) and the few API calls Mapo needs.
 ///
 /// No client secret anywhere: device flow is designed for apps that cannot
 /// keep one. The client id is public by nature.
@@ -297,7 +297,7 @@ public struct GitHubAPI: Sendable {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         req.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-        req.setValue("Atlas", forHTTPHeaderField: "User-Agent")
+        req.setValue("Mapo", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw GitHub.APIError.http(0) }
         if http.statusCode == 401 { throw GitHub.APIError.unauthorized }

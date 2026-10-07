@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// Atlas uygulama ikonunu üretir (docs/TASARIM.md §Uygulama ikonu).
+// Mapo uygulama ikonunu üretir (docs/TASARIM.md §Uygulama ikonu).
 //
 //   swift scripts/make-icon.swift            → App/Resources/Assets.xcassets/AppIcon.appiconset
 //   swift scripts/make-icon.swift --preview out.png

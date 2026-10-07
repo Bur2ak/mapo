@@ -1,5 +1,5 @@
 import AppKit
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 /// Right-hand panel: what the selected node is, where it lives, and how it

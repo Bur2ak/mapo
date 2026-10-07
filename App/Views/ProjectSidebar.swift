@@ -1,5 +1,5 @@
 import AppKit
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 struct ProjectSidebar: View {
@@ -128,5 +128,5 @@ private struct ProjectRow: View {
 }
 
 extension Notification.Name {
-    static let showGitHubSheet = Notification.Name("atlas.showGitHubSheet")
+    static let showGitHubSheet = Notification.Name("mapo.showGitHubSheet")
 }

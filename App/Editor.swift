@@ -1,5 +1,5 @@
 import AppKit
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 /// Opens a file at a line in the user's editor.

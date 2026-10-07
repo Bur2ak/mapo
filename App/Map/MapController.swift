@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 import WebKit
 
-/// Owns the map web view and the Swift ⇄ JS bridge (Map/src/main.ts `atlasMap`).
+/// Owns the map web view and the Swift ⇄ JS bridge (Map/src/main.ts `mapoMap`).
 ///
 /// Commands issued before the page reports `ready` are queued, so callers
 /// never have to care about load timing.
@@ -58,14 +58,14 @@ final class MapController: NSObject {
     private(set) var layoutProgress: Double?
 
     var detail: Detail = .files {
-        didSet { if !syncingFromMap { call("atlasMap.setDetail(v)", ["v": detail.rawValue]) } }
+        didSet { if !syncingFromMap { call("mapoMap.setDetail(v)", ["v": detail.rawValue]) } }
     }
     @ObservationIgnored private var syncingFromMap = false
-    var colorMode: ColorMode = .folder { didSet { call("atlasMap.setColorMode(v)", ["v": colorMode.rawValue]) } }
-    var hideTests = false { didSet { call("atlasMap.setHideTests(v)", ["v": hideTests]) } }
+    var colorMode: ColorMode = .folder { didSet { call("mapoMap.setColorMode(v)", ["v": colorMode.rawValue]) } }
+    var hideTests = false { didSet { call("mapoMap.setHideTests(v)", ["v": hideTests]) } }
     /// Build output, bundles and tool config (hidden by default).
     var showNoise = false {
-        didSet { if !syncingFromMap { call("atlasMap.setShowNoise(v)", ["v": showNoise]) } }
+        didSet { if !syncingFromMap { call("mapoMap.setShowNoise(v)", ["v": showNoise]) } }
     }
 
     @ObservationIgnored var onEvent: ((Event) -> Void)?
@@ -73,15 +73,15 @@ final class MapController: NSObject {
     @ObservationIgnored private var queue: [(String, [String: Any])] = []
     /// Reloaded automatically if the web content process restarts.
     @ObservationIgnored private var loadedProject: UUID?
-    @ObservationIgnored private let schemeHandler: AtlasSchemeHandler
+    @ObservationIgnored private let schemeHandler: MapoSchemeHandler
 
     init(payloadProvider: @escaping @MainActor (String) -> Data?) {
-        schemeHandler = AtlasSchemeHandler(payloadProvider: payloadProvider)
+        schemeHandler = MapoSchemeHandler(payloadProvider: payloadProvider)
         super.init()
 
         let config = WKWebViewConfiguration()
-        config.setURLSchemeHandler(schemeHandler, forURLScheme: AtlasSchemeHandler.scheme)
-        config.userContentController.add(WeakMessageHandler(self), name: "atlas")
+        config.setURLSchemeHandler(schemeHandler, forURLScheme: MapoSchemeHandler.scheme)
+        config.userContentController.add(WeakMessageHandler(self), name: "mapo")
         config.suppressesIncrementalRendering = true
 
         let view = WKWebView(frame: .zero, configuration: config)
@@ -93,7 +93,7 @@ final class MapController: NSObject {
         view.isInspectable = true
         #endif
         webView = view
-        view.load(URLRequest(url: URL(string: "\(AtlasSchemeHandler.scheme)://app/index.html")!))
+        view.load(URLRequest(url: URL(string: "\(MapoSchemeHandler.scheme)://app/index.html")!))
     }
 
     // MARK: Commands
@@ -102,23 +102,23 @@ final class MapController: NSObject {
     /// selection instead of re-framing the whole map.
     func load(projectID: UUID, keepView: Bool = false, select: String? = nil) {
         loadedProject = projectID
-        var args: [String: Any] = ["url": AtlasSchemeHandler.payloadURL(projectID), "keep": keepView]
+        var args: [String: Any] = ["url": MapoSchemeHandler.payloadURL(projectID), "keep": keepView]
         args["sel"] = select ?? NSNull()
-        call("atlasMap.load(url, keep, sel)", args)
+        call("mapoMap.load(url, keep, sel)", args)
     }
 
     func select(_ id: String?) {
-        if let id { call("atlasMap.select(id)", ["id": id]) } else { call("atlasMap.select(null)", [:]) }
+        if let id { call("mapoMap.select(id)", ["id": id]) } else { call("mapoMap.select(null)", [:]) }
     }
 
-    func focus(_ id: String) { call("atlasMap.focus(id)", ["id": id]) }
-    func showPath(_ nodeIDs: [String]) { call("atlasMap.showPath(ids)", ["ids": nodeIDs]) }
-    func highlight(_ nodeIDs: [String]) { call("atlasMap.highlightSet(ids)", ["ids": nodeIDs]) }
-    func clearHighlight() { call("atlasMap.clearHighlight()", [:]) }
-    func fit() { call("atlasMap.fit()", [:]) }
-    func focusGroup(_ id: Int) { call("atlasMap.focusGroup(g)", ["g": id]) }
-    func zoom(_ factor: Double) { call("atlasMap.zoom(f)", ["f": factor]) }
-    func relayout() { call("atlasMap.relayout()", [:]) }
+    func focus(_ id: String) { call("mapoMap.focus(id)", ["id": id]) }
+    func showPath(_ nodeIDs: [String]) { call("mapoMap.showPath(ids)", ["ids": nodeIDs]) }
+    func highlight(_ nodeIDs: [String]) { call("mapoMap.highlightSet(ids)", ["ids": nodeIDs]) }
+    func clearHighlight() { call("mapoMap.clearHighlight()", [:]) }
+    func fit() { call("mapoMap.fit()", [:]) }
+    func focusGroup(_ id: Int) { call("mapoMap.focusGroup(g)", ["g": id]) }
+    func zoom(_ factor: Double) { call("mapoMap.zoom(f)", ["f": factor]) }
+    func relayout() { call("mapoMap.relayout()", [:]) }
 
     private func call(_ body: String, _ args: [String: Any]) {
         guard isReady else {
@@ -130,7 +130,7 @@ final class MapController: NSObject {
         }
         webView.callAsyncJavaScript(body, arguments: args, in: nil, in: .page) { result in
             if case .failure(let error) = result {
-                NSLog("Atlas map call failed: \(body): \(error)")
+                NSLog("Mapo map call failed: \(body): \(error)")
             }
         }
     }
@@ -140,7 +140,7 @@ final class MapController: NSObject {
     fileprivate func receive(_ body: Any) {
         #if DEBUG
         if let m = body as? [String: Any], m["type"] as? String != "layoutProgress" {
-            NSLog("[atlas-js] %@", String(describing: m["type"] ?? "?") + " " + String(describing: m["message"] ?? m["id"] ?? m["nodes"] ?? ""))
+            NSLog("[mapo-js] %@", String(describing: m["type"] ?? "?") + " " + String(describing: m["message"] ?? m["id"] ?? m["nodes"] ?? ""))
         }
         #endif
         guard let msg = body as? [String: Any], let type = msg["type"] as? String else { return }
@@ -149,14 +149,14 @@ final class MapController: NSObject {
             isReady = true
             var pending = queue
             queue.removeAll()
-            if let id = loadedProject, !pending.contains(where: { $0.0.hasPrefix("atlasMap.load(") }) {
-                pending.insert(("atlasMap.load(url, keep, sel)", ["url": AtlasSchemeHandler.payloadURL(id), "keep": false, "sel": NSNull()]), at: 0)
+            if let id = loadedProject, !pending.contains(where: { $0.0.hasPrefix("mapoMap.load(") }) {
+                pending.insert(("mapoMap.load(url, keep, sel)", ["url": MapoSchemeHandler.payloadURL(id), "keep": false, "sel": NSNull()]), at: 0)
             }
             // Re-apply view options, then queued commands in order.
-            call("atlasMap.setDetail(v)", ["v": detail.rawValue])
-            call("atlasMap.setColorMode(v)", ["v": colorMode.rawValue])
-            call("atlasMap.setHideTests(v)", ["v": hideTests])
-            call("atlasMap.setShowNoise(v)", ["v": showNoise])
+            call("mapoMap.setDetail(v)", ["v": detail.rawValue])
+            call("mapoMap.setColorMode(v)", ["v": colorMode.rawValue])
+            call("mapoMap.setHideTests(v)", ["v": hideTests])
+            call("mapoMap.setShowNoise(v)", ["v": showNoise])
             pending.forEach { call($0.0, $0.1) }
         case "loaded":
             onEvent?(.loaded(nodes: msg["nodes"] as? Int ?? 0, edges: msg["edges"] as? Int ?? 0))
@@ -208,7 +208,7 @@ final class MapController: NSObject {
 extension MapController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
         // The map never navigates anywhere except its own bundled page.
-        action.request.url?.scheme == AtlasSchemeHandler.scheme ? .allow : .cancel
+        action.request.url?.scheme == MapoSchemeHandler.scheme ? .allow : .cancel
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
@@ -229,10 +229,10 @@ private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
     }
 }
 
-/// Serves `atlas://app/<file>` from the bundled map and
-/// `atlas://app/project/<uuid>/map.json` from the open workspace.
-final class AtlasSchemeHandler: NSObject, WKURLSchemeHandler {
-    static let scheme = "atlas"
+/// Serves `mapo://app/<file>` from the bundled map and
+/// `mapo://app/project/<uuid>/map.json` from the open workspace.
+final class MapoSchemeHandler: NSObject, WKURLSchemeHandler {
+    static let scheme = "mapo"
 
     static func payloadURL(_ id: UUID) -> String {
         "\(scheme)://app/project/\(id.uuidString)/map.json"
@@ -249,9 +249,9 @@ final class AtlasSchemeHandler: NSObject, WKURLSchemeHandler {
                 return fail(task, 400)
             }
             #if DEBUG
-            NSLog("[atlas-scheme] %@", url.absoluteString)
+            NSLog("[mapo-scheme] %@", url.absoluteString)
             #endif
-            // Single origin (atlas://app) so the page's fetch is same-origin.
+            // Single origin (mapo://app) so the page's fetch is same-origin.
             guard host == "app" else { return fail(task, 404) }
             let parts = url.pathComponents.filter { $0 != "/" }
             if parts.count == 3, parts[0] == "project", parts[2] == "map.json" {
@@ -280,7 +280,7 @@ final class AtlasSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     private func fail(_ task: any WKURLSchemeTask, _ status: Int) {
-        let response = HTTPURLResponse(url: task.request.url ?? URL(string: "atlas://x")!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
+        let response = HTTPURLResponse(url: task.request.url ?? URL(string: "mapo://x")!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
         task.didReceive(response)
         task.didFinish()
     }

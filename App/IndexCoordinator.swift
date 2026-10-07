@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import Foundation
 import Observation
 
@@ -25,13 +25,13 @@ final class IndexCoordinator {
     /// Called on the main actor after a successful run.
     @ObservationIgnored var onFinished: (UUID, Project.IndexRecord) -> Void = { _, _ in }
 
-    private let paths: AtlasPaths
+    private let paths: MapoPaths
     @ObservationIgnored private var queue: [UUID] = []
     @ObservationIgnored private var running: (id: UUID, task: Task<Void, Never>)?
     /// Changes arrived while this project was being indexed: run once more.
     @ObservationIgnored private var rerun: Set<UUID> = []
 
-    init(paths: AtlasPaths) {
+    init(paths: MapoPaths) {
         self.paths = paths
     }
 

@@ -14,9 +14,9 @@ import { Kind, Rel, type ColorMode, type Detail, type GroupInfo, type Outgoing, 
 // Bridge
 
 function post(msg: Outgoing) {
-  const h = (window as any).webkit?.messageHandlers?.atlas;
+  const h = (window as any).webkit?.messageHandlers?.mapo;
   if (h) h.postMessage(msg);
-  else console.debug("[atlas]", msg);
+  else console.debug("[mapo]", msg);
 }
 
 window.addEventListener("error", (e) => post({ type: "error", message: String(e.message) }));
@@ -240,7 +240,7 @@ function placeNodes(p: Payload): number {
 }
 
 /**
- * Two-level "atlas" layout:
+ * Two-level "mapo" layout:
  *  1. each folder is laid out on its own into a round country;
  *  2. countries are placed by the traffic between them, never overlapping.
  * A single global force layout let folders bleed into each other.
@@ -1281,7 +1281,7 @@ const api = {
     void runLayout();
   },
 };
-(window as any).atlasMap = api;
+(window as any).mapoMap = api;
 
 darkQuery.addEventListener("change", (e) => {
   theme = e.matches ? DARK : LIGHT;

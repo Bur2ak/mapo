@@ -1,5 +1,5 @@
 // Territories and region bundles, drawn on a 2D canvas *under* the WebGL
-// graph. This is the "atlas" layer: each folder becomes a soft country,
+// graph. This is the "mapo" layer: each folder becomes a soft country,
 // and heavy traffic between countries becomes one ribbon instead of a fog
 // of individual edges.
 

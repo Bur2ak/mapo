@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// Generic-password items in the login keychain. Atlas keeps the GitHub
+/// Generic-password items in the login keychain. Mapo keeps the GitHub
 /// token here and nowhere else (never in UserDefaults, files or logs).
 public struct Keychain: Sendable {
     public let service: String

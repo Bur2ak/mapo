@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 /// Project workspace: the map, its toolbar, the inspector and the ⌘K palette.

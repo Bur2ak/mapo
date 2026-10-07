@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AtlasCore
+@testable import MapoCore
 
 private func fixture(_ name: String) throws -> (Graph, GraphLoader.Metadata) {
     let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
@@ -223,11 +223,11 @@ struct SearchTests {
 
 @Suite("Kütüphane")
 struct LibraryTests {
-    private func tempPaths() throws -> (AtlasPaths, URL) {
-        let base = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-test-\(UUID().uuidString)")
+    private func tempPaths() throws -> (MapoPaths, URL) {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-test-\(UUID().uuidString)")
         let folder = base.appendingPathComponent("proje", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return (AtlasPaths(base: base.appendingPathComponent("support")), folder)
+        return (MapoPaths(base: base.appendingPathComponent("support")), folder)
     }
 
     @Test func addPersistReload() async throws {
@@ -255,7 +255,7 @@ struct LibraryTests {
         }
     }
 
-    @Test func removeDeletesOnlyAtlasData() async throws {
+    @Test func removeDeletesOnlyMapoData() async throws {
         let (paths, folder) = try tempPaths()
         let lib = ProjectLibrary(paths: paths)
         let p = try await lib.add(folder: folder)
@@ -294,7 +294,7 @@ struct LibraryTests {
 }
 
 /// Real-world graph (Kontak, ~4k nodes / ~13k edges). Skipped when absent.
-private let realGraphPath = ProcessInfo.processInfo.environment["ATLAS_REAL_GRAPH"]
+private let realGraphPath = ProcessInfo.processInfo.environment["MAPO_REAL_GRAPH"]
     ?? NSHomeDirectory() + "/Projeler/KONTAK/graf-cikti/graphify-out/graph.json"
 
 @Suite("Gerçek graf", .enabled(if: FileManager.default.fileExists(atPath: realGraphPath)))

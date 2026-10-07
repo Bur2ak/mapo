@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Sertleştirilmiş çalışma zamanı, ek ayrıcalık yok. Atlas sandbox dışında
+	<!-- Sertleştirilmiş çalışma zamanı, ek ayrıcalık yok. Mapo sandbox dışında
 	     çalışır (proje klasörlerini, git'i ve gömülü motoru kullanır; PLAN §4). -->
 </dict>
 </plist>

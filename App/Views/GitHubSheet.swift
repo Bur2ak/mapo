@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 /// "GitHub'dan Ekle": connect, then pick a repository to map.
@@ -41,7 +41,7 @@ private struct ConnectView: View {
             VStack(spacing: 6) {
                 Text("GitHub hesabını bağla")
                     .font(.title2.weight(.semibold))
-                Text("Repoların listelenir, seçtiğin bu Mac'e indirilir ve haritası çıkarılır. Kodun hiçbir yere gönderilmez; şifren Atlas'a girilmez.")
+                Text("Repoların listelenir, seçtiğin bu Mac'e indirilir ve haritası çıkarılır. Kodun hiçbir yere gönderilmez; şifren Mapo'a girilmez.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -57,7 +57,7 @@ private struct ConnectView: View {
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.accent)
             Spacer()
-            Text("Atlas yalnız repoları okumak ve indirmek için izin ister.")
+            Text("Mapo yalnız repoları okumak ve indirmek için izin ister.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.bottom, 16)

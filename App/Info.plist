@@ -4,7 +4,7 @@
 <dict>
 	<!-- Sparkle: güncellemeler GitHub Releases'tan, EdDSA imzalı (PLAN §3.7). -->
 	<key>SUFeedURL</key>
-	<string>https://github.com/Bur2ak/atlas/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/Bur2ak/mapo/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>J3UQ3evwe5y/LNi08jKnp4gtnhhOWW+gG9YnozK5e7k=</string>
 	<key>SUEnableAutomaticChecks</key>

@@ -1,9 +1,9 @@
-import AtlasCore
+import MapoCore
 import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
-    @State private var tab = UserDefaults.standard.string(forKey: "atlasSettingsTab") ?? "general"
+    @State private var tab = UserDefaults.standard.string(forKey: "mapoSettingsTab") ?? "general"
 
     var body: some View {
         TabView(selection: $tab) {
@@ -117,7 +117,7 @@ private struct AboutSettings: View {
             LabeledContent("Sürüm", value: Bundle.main.shortVersion)
             UpdatesRow()
             LabeledContent("Gizlilik") {
-                Text("Kodun bu Mac'ten çıkmaz. Atlas analiz verisi göndermez, telemetri toplamaz.")
+                Text("Kodun bu Mac'ten çıkmaz. Mapo analiz verisi göndermez, telemetri toplamaz.")
                     .multilineTextAlignment(.trailing)
             }
             LabeledContent("Analiz motoru") {
@@ -128,7 +128,7 @@ private struct AboutSettings: View {
             }
             LabeledContent("Günlükler") {
                 Button("Finder'da Göster") {
-                    let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/Atlas")
+                    let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/Mapo")
                     try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
                     NSWorkspace.shared.activateFileViewerSelecting([logs])
                 }

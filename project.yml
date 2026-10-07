@@ -1,6 +1,6 @@
 # Xcode projesi bu dosyadan üretilir: `xcodegen generate`
-# Atlas.xcodeproj git'e girmez; tek kaynak bu dosya.
-name: Atlas
+# Mapo.xcodeproj git'e girmez; tek kaynak bu dosya.
+name: Mapo
 options:
   bundleIdPrefix: io.github.bur2ak
   deploymentTarget:
@@ -29,14 +29,14 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
 
 packages:
-  AtlasCore:
-    path: Packages/AtlasCore
+  MapoCore:
+    path: Packages/MapoCore
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.10.0
 
 targets:
-  Atlas:
+  Mapo:
     type: application
     platform: macOS
     sources:
@@ -48,18 +48,18 @@ targets:
         type: folder
         buildPhase: resources
     postBuildScripts:
-      - name: atlas-mcp'yi göm
+      - name: mapo-mcp'yi göm
         basedOnDependencyAnalysis: false
         script: |
-          # MCP sunucusu (ajanlar için) uygulamanın yanında: Contents/MacOS/atlas-mcp
+          # MCP sunucusu (ajanlar için) uygulamanın yanında: Contents/MacOS/mapo-mcp
           set -e
           CONF=$([ "$CONFIGURATION" = "Release" ] && echo release || echo debug)
-          cd "${SRCROOT}/Packages/AtlasCore"
+          cd "${SRCROOT}/Packages/MapoCore"
           env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" HOME="$HOME" DEVELOPER_DIR="$DEVELOPER_DIR" \
-            xcrun swift build -c "$CONF" --product atlas-mcp --arch arm64 --scratch-path "${OBJROOT}/atlas-mcp" >/dev/null
-          cp "${OBJROOT}/atlas-mcp/arm64-apple-macosx/${CONF}/atlas-mcp" "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/atlas-mcp"
+            xcrun swift build -c "$CONF" --product mapo-mcp --arch arm64 --scratch-path "${OBJROOT}/mapo-mcp" >/dev/null
+          cp "${OBJROOT}/mapo-mcp/arm64-apple-macosx/${CONF}/mapo-mcp" "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/mapo-mcp"
           if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then
-            codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime ${OTHER_CODE_SIGN_FLAGS:-} "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/atlas-mcp"
+            codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime ${OTHER_CODE_SIGN_FLAGS:-} "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/mapo-mcp"
           fi
       - name: Gömülü motoru kopyala
         basedOnDependencyAnalysis: false
@@ -76,30 +76,30 @@ targets:
             echo "warning: Gömülü motor yok (bash scripts/build-engine.sh). Sistem graphify'ı kullanılacak."
           fi
     dependencies:
-      - package: AtlasCore
+      - package: MapoCore
       - package: Sparkle
     settings:
       configs:
         Release:
           CODE_SIGN_IDENTITY: "Developer ID Application"
           OTHER_CODE_SIGN_FLAGS: "--timestamp"
-          CODE_SIGN_ENTITLEMENTS: App/Atlas.entitlements
+          CODE_SIGN_ENTITLEMENTS: App/Mapo.entitlements
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.bur2ak.atlas
-        PRODUCT_NAME: Atlas
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.bur2ak.mapo
+        PRODUCT_NAME: Mapo
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: App/Info.plist
-        INFOPLIST_KEY_CFBundleDisplayName: Atlas
+        INFOPLIST_KEY_CFBundleDisplayName: Mapo
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Burak Gemicioğlu"
         COMBINE_HIDPI_IMAGES: YES
 
 schemes:
-  Atlas:
+  Mapo:
     build:
       targets:
-        Atlas: all
+        Mapo: all
     run:
       config: Debug
     test:

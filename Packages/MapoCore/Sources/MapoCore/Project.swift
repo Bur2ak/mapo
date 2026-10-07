@@ -1,11 +1,11 @@
 import Foundation
 
-/// A codebase the user added to Atlas.
+/// A codebase the user added to Mapo.
 public struct Project: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var name: String
     /// Root folder on disk. Stored as a path; security-scoped bookmarks are
-    /// not needed because Atlas ships outside the App Store sandbox (PLAN §4).
+    /// not needed because Mapo ships outside the App Store sandbox (PLAN §4).
     public var rootPath: String
     public var addedAt: Date
     public var source: Source
@@ -48,16 +48,16 @@ public struct Project: Codable, Sendable, Hashable, Identifiable {
     public var rootURL: URL { URL(fileURLWithPath: rootPath, isDirectory: true) }
 }
 
-/// Where Atlas keeps its own data. Nothing is ever written inside a project.
-public struct AtlasPaths: Sendable {
+/// Where Mapo keeps its own data. Nothing is ever written inside a project.
+public struct MapoPaths: Sendable {
     public let base: URL
 
     public init(base: URL) { self.base = base }
 
-    /// `~/Library/Application Support/Atlas`
-    public static var standard: AtlasPaths {
+    /// `~/Library/Application Support/Mapo`
+    public static var standard: MapoPaths {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return AtlasPaths(base: support.appendingPathComponent("Atlas", isDirectory: true))
+        return MapoPaths(base: support.appendingPathComponent("Mapo", isDirectory: true))
     }
 
     public var libraryFile: URL { base.appendingPathComponent("library.json") }

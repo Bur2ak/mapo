@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import Foundation
 import Observation
 
@@ -59,11 +59,11 @@ final class Workspace {
     var isSearchPresented = false
 
     let map: MapController
-    private let paths: AtlasPaths
+    private let paths: MapoPaths
     private let indexer: IndexCoordinator
     @ObservationIgnored private var payloadData: Data?
 
-    init(project: Project, paths: AtlasPaths, indexer: IndexCoordinator) {
+    init(project: Project, paths: MapoPaths, indexer: IndexCoordinator) {
         self.project = project
         self.paths = paths
         self.indexer = indexer
@@ -173,17 +173,17 @@ final class Workspace {
     }
 
     #if DEBUG
-    /// Visual QA harness: `-atlasDetail 1 -atlasZoom 2.5 -atlasSelect <id> -atlasSearch <q>`
+    /// Visual QA harness: `-mapoDetail 1 -mapoZoom 2.5 -mapoSelect <id> -mapoSearch <q>`
     /// puts the map in a given state on launch, so screenshots never depend
     /// on synthesized clicks reaching the window.
     private func applyScreenshotArguments() {
         let d = UserDefaults.standard
-        if d.object(forKey: "atlasDetail") != nil, let level = MapController.Detail(rawValue: d.integer(forKey: "atlasDetail")) {
+        if d.object(forKey: "mapoDetail") != nil, let level = MapController.Detail(rawValue: d.integer(forKey: "mapoDetail")) {
             map.detail = level
         }
-        let zoom = d.double(forKey: "atlasZoom")
-        let select = d.string(forKey: "atlasSelect")
-        let search = d.string(forKey: "atlasSearch")
+        let zoom = d.double(forKey: "mapoZoom")
+        let select = d.string(forKey: "mapoSelect")
+        let search = d.string(forKey: "mapoSearch")
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.2))
             if zoom > 0 { map.zoom(zoom) }
@@ -213,7 +213,7 @@ final class Workspace {
                 try? data.write(to: url, options: .atomic)
             }
         case .error(let message):
-            NSLog("Atlas map error: \(message)")
+            NSLog("Mapo map error: \(message)")
         case .loaded, .layoutProgress:
             break
         }

@@ -6,10 +6,10 @@ import Foundation
 /// truncated library. A corrupt file is moved aside, never silently erased.
 public actor ProjectLibrary {
     public private(set) var projects: [Project] = []
-    private let paths: AtlasPaths
+    private let paths: MapoPaths
     private let fm = FileManager.default
 
-    public init(paths: AtlasPaths) {
+    public init(paths: MapoPaths) {
         self.paths = paths
     }
 
@@ -60,7 +60,7 @@ public actor ProjectLibrary {
         try save()
     }
 
-    /// Removes the project and Atlas's data for it. Never touches the
+    /// Removes the project and Mapo's data for it. Never touches the
     /// project's own folder.
     public func remove(_ id: UUID) throws {
         projects.removeAll { $0.id == id }

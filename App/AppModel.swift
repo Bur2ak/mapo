@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import Foundation
 import Observation
 
@@ -15,7 +15,7 @@ final class AppModel {
     /// Last user-facing error, shown as an alert.
     var alert: AlertMessage?
 
-    let paths: AtlasPaths
+    let paths: MapoPaths
     let indexer: IndexCoordinator
     let github = GitHubAccount()
     /// Repositories being cloned (by GitHub id) → last progress line.
@@ -40,7 +40,7 @@ final class AppModel {
     @ObservationIgnored private var recent: [Project.ID] = []
     private let warmWorkspaces = 3
 
-    init(paths: AtlasPaths = .standard) {
+    init(paths: MapoPaths = .standard) {
         self.paths = paths
         self.library = ProjectLibrary(paths: paths)
         self.indexer = IndexCoordinator(paths: paths)
@@ -67,7 +67,7 @@ final class AppModel {
             await refreshStatuses()
             Task { await github.restore() }
             startBackgroundSync()
-            // Catch up on what changed while Atlas was closed.
+            // Catch up on what changed while Mapo was closed.
             if autoUpdate {
                 for p in projects where p.lastIndex != nil && (behind[p.id] ?? 0) > 0 { indexer.enqueue(p.id) }
             }

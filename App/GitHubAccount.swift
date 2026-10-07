@@ -1,10 +1,10 @@
 import AppKit
-import AtlasCore
+import MapoCore
 import Foundation
 import Observation
 import os
 
-private let log = Logger(subsystem: "io.github.bur2ak.atlas", category: "github")
+private let log = Logger(subsystem: "io.github.bur2ak.mapo", category: "github")
 
 /// The signed-in GitHub account. The token lives only in the keychain.
 @MainActor
@@ -23,7 +23,7 @@ final class GitHubAccount {
     private(set) var isLoadingRepositories = false
     private(set) var repositoriesError: String?
 
-    private let keychain = Keychain(service: "io.github.bur2ak.atlas")
+    private let keychain = Keychain(service: "io.github.bur2ak.mapo")
     private let account = "github"
     private let auth = GitHubAuth()
     @ObservationIgnored private var signInTask: Task<Void, Never>?
@@ -133,6 +133,7 @@ final class GitHubAccount {
     private func storedToken() async -> GitHub.Token? {
         let (k, a) = (keychain, account)
         return await Task.detached(priority: .userInitiated) {
+            LegacyMigration.moveKeychainItem(account: a, to: k)
             guard let data = try? k.get(account: a) else { return nil }
             return try? JSONDecoder().decode(GitHub.Token.self, from: data)
         }.value

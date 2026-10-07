@@ -88,9 +88,9 @@ if missing:
     sys.exit('Lisans metni bulunamadı: ' + ', '.join(missing))
 
 entries.sort()
-lines = ['Atlas — Üçüncü taraf yazılımlar / Third-party software', '',
-         'Atlas aşağıdaki açık kaynak yazılımları içerir. Teşekkürler.',
-         'Atlas includes the following open-source software. Thank you.', '']
+lines = ['Mapo — Üçüncü taraf yazılımlar / Third-party software', '',
+         'Mapo aşağıdaki açık kaynak yazılımları içerir. Teşekkürler.',
+         'Mapo includes the following open-source software. Thank you.', '']
 lines += [f'  • {n} {v} — {l}' for _, n, v, l, _, _ in entries]
 for _, n, v, l, text, url in entries:
     lines += ['', '=' * 72, f'{n} {v}', f'License: {l}'] + ([f'Source: {url}'] if url else []) + ['=' * 72, '', text]

@@ -3,7 +3,7 @@ import Foundation
 /// Drives graphify to (re)build a project's graph.
 ///
 /// Always code-only, always with a scrubbed environment (no API keys), and
-/// always writing into Atlas's own data folder — never into the project.
+/// always writing into Mapo's own data folder — never into the project.
 public struct Engine: Sendable {
     public let executable: URL
     public let logDirectory: URL?
@@ -42,7 +42,7 @@ public struct Engine: Sendable {
         var candidates: [URL] = []
         #if DEBUG
         // Test double for end-to-end checks (scripts/fake-engine.py).
-        if let fake = ProcessInfo.processInfo.environment["ATLAS_ENGINE"], fm.isExecutableFile(atPath: fake) {
+        if let fake = ProcessInfo.processInfo.environment["MAPO_ENGINE"], fm.isExecutableFile(atPath: fake) {
             return Engine(executable: URL(fileURLWithPath: fake), logDirectory: nil)
         }
         #endif
@@ -57,7 +57,7 @@ public struct Engine: Sendable {
         ]
         guard let exe = candidates.first(where: { fm.isExecutableFile(atPath: $0.path) }) else { return nil }
         let logs = fm.urls(for: .libraryDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("Logs/Atlas", isDirectory: true)
+            .appendingPathComponent("Logs/Mapo", isDirectory: true)
         return Engine(executable: exe, logDirectory: logs)
     }
 
@@ -124,7 +124,7 @@ public struct Engine: Sendable {
     }
 }
 
-/// Append-only log in `~/Library/Logs/Atlas/<name>.log`, rotated at 2 MB.
+/// Append-only log in `~/Library/Logs/Mapo/<name>.log`, rotated at 2 MB.
 final class LogFile: @unchecked Sendable {
     private let url: URL?
     private let lock = NSLock()

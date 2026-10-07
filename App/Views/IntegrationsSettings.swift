@@ -1,14 +1,14 @@
-import AtlasCore
+import MapoCore
 import SwiftUI
 
-/// Ayarlar → Entegrasyonlar: let coding agents query Atlas's maps (MCP).
+/// Ayarlar → Entegrasyonlar: let coding agents query Mapo's maps (MCP).
 struct IntegrationsSettings: View {
     @State private var connected: [AgentIntegrations.Client: Bool] = [:]
     @State private var error: String?
     private let home = FileManager.default.homeDirectoryForCurrentUser
 
     private var executable: String {
-        Bundle.main.executableURL!.deletingLastPathComponent().appendingPathComponent("atlas-mcp").path
+        Bundle.main.executableURL!.deletingLastPathComponent().appendingPathComponent("mapo-mcp").path
     }
 
     var body: some View {

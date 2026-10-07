@@ -1,4 +1,4 @@
-# Atlas
+# Mapo
 
 Herhangi bir kod projesini canlı, gezilebilir bir haritaya çeviren macOS uygulaması.
 
@@ -13,15 +13,15 @@ Herhangi bir kod projesini canlı, gezilebilir bir haritaya çeviren macOS uygul
 Gereken: macOS 14+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```sh
-xcodegen generate                          # Atlas.xcodeproj üretir (git'e girmez)
-open Atlas.xcodeproj
-swift test --package-path Packages/AtlasCore
+xcodegen generate                          # Mapo.xcodeproj üretir (git'e girmez)
+open Mapo.xcodeproj
+swift test --package-path Packages/MapoCore
 ```
 
 | Klasör | İçerik |
 |---|---|
 | `App/` | SwiftUI uygulaması |
-| `Packages/AtlasCore/` | graf modeli, yükleyici, arama, sorgular, kütüphane (arayüzden bağımsız, testli) |
+| `Packages/MapoCore/` | graf modeli, yükleyici, arama, sorgular, kütüphane (arayüzden bağımsız, testli) |
 | `scripts/` | ikon üretici ve yardımcı betikler |
 | `docs/` | plan, tasarım dili, karar kaydı |
 

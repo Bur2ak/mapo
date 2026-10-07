@@ -1,5 +1,5 @@
 import AppKit
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 /// Menu bar extra: every project's map status at a glance.
@@ -24,7 +24,7 @@ struct MenuBarContent: View {
             .disabled(model.projects.allSatisfy { $0.lastIndex == nil })
         Toggle("Kendiliğinden Güncelle", isOn: Binding(get: { model.autoUpdate }, set: { model.autoUpdate = $0 }))
         Divider()
-        Button("Atlas'ı Aç") { showWindow() }
+        Button("Mapo'ı Aç") { showWindow() }
             .keyboardShortcut("o")
         Button("Çıkış") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

@@ -1,24 +1,29 @@
-import AtlasCore
+import MapoCore
 import AppKit
 import SwiftUI
 
 @main
-struct AtlasApp: App {
+struct MapoApp: App {
     @State private var model = AppModel(paths: Self.dataPaths)
     @AppStorage("menuBarIcon") private var menuBarIcon = true
 
-    /// DEBUG: `-atlasDataDir <path>` keeps tests away from the real library.
-    private static var dataPaths: AtlasPaths {
+    /// DEBUG: `-mapoDataDir <path>` keeps tests away from the real library.
+    private static var dataPaths: MapoPaths {
         #if DEBUG
-        if let dir = UserDefaults.standard.string(forKey: "atlasDataDir") {
-            return AtlasPaths(base: URL(fileURLWithPath: dir, isDirectory: true))
+        if let dir = UserDefaults.standard.string(forKey: "mapoDataDir") {
+            return MapoPaths(base: URL(fileURLWithPath: dir, isDirectory: true))
         }
         #endif
+        // Early users installed the app as "Atlas": bring their data along.
+        LegacyMigration.moveDataFolder(to: .standard)
+        LegacyMigration.copyDefaults(keys: [
+            "lastProject", "autoUpdate", "editor", "menuBarIcon", "inspectorShown", "mapHintDismissed", "githubLogin",
+        ])
         return .standard
     }
 
     var body: some Scene {
-        Window("Atlas", id: "main") {
+        Window("Mapo", id: "main") {
             ContentView()
                 .environment(model)
                 .task { await model.start() }

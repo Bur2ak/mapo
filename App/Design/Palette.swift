@@ -33,7 +33,7 @@ extension NSColor {
     }
 }
 
-/// Atlas's primary action: Pusula fill with dark ink text. System
+/// Mapo's primary action: Pusula fill with dark ink text. System
 /// `.borderedProminent` would put white text on amber (~1.9:1 contrast).
 struct AccentButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled

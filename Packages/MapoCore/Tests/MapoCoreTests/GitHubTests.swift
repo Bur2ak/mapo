@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AtlasCore
+@testable import MapoCore
 
 /// Scripted HTTP responses keyed by URL path, served in order.
 final class MockURLProtocol: URLProtocol, @unchecked Sendable {
@@ -157,7 +157,7 @@ private final class IntervalBox: @unchecked Sendable {
 @Suite("Anahtar Zinciri")
 struct KeychainTests {
     @Test func roundTrip() throws {
-        let k = Keychain(service: "io.github.bur2ak.atlas.tests-\(UUID().uuidString)")
+        let k = Keychain(service: "io.github.bur2ak.mapo.tests-\(UUID().uuidString)")
         defer { try? k.delete(account: "a") }
         #expect(try k.get(account: "a") == nil)
         try k.set(Data("bir".utf8), account: "a")
@@ -180,7 +180,7 @@ struct RepoSyncTests {
     }
 
     @Test func cloneThenFastForward() async throws {
-        let base = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-sync-\(UUID().uuidString)")
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-sync-\(UUID().uuidString)")
         let origin = base.appendingPathComponent("origin")
         try FileManager.default.createDirectory(at: origin, withIntermediateDirectories: true)
         try await sh("git init -q -b main && echo 1 > a.ts && git add . && git commit -qm bir", origin)

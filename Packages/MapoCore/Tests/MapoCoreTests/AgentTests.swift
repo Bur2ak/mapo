@@ -1,12 +1,12 @@
 import Foundation
 import Testing
-@testable import AtlasCore
+@testable import MapoCore
 
 @Suite("MCP sunucusu")
 struct MCPServerTests {
     private func server() throws -> (MCPServer, URL) {
-        let base = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-mcp-\(UUID().uuidString)")
-        let paths = AtlasPaths(base: base)
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-mcp-\(UUID().uuidString)")
+        let paths = MapoPaths(base: base)
         let id = UUID()
         try FileManager.default.createDirectory(at: paths.graphFile(id).deletingLastPathComponent(), withIntermediateDirectories: true)
         let fixture = try #require(Bundle.module.url(forResource: "kucuk", withExtension: "json", subdirectory: "Fixtures"))
@@ -63,54 +63,54 @@ struct MCPServerTests {
 
     @Test func callersAndPathWithLocations() throws {
         let (s, _) = try server()
-        let (callers, e1) = try tool(s, "atlas_callers", ["project": "deneme", "symbol": "kulupSohbetiAc"])
+        let (callers, e1) = try tool(s, "mapo_callers", ["project": "deneme", "symbol": "kulupSohbetiAc"])
         #expect(!e1)
         #expect(callers.contains("KulupSayfasi"))
         #expect(callers.contains("apps/mobile/app/kulupler/[id].tsx:40"))
         #expect(callers.contains("freshness:") && callers.contains("abc1234"))
 
-        let (path, _) = try tool(s, "atlas_path", ["project": "deneme", "from": "KulupSayfasi", "to": "istek"])
+        let (path, _) = try tool(s, "mapo_path", ["project": "deneme", "from": "KulupSayfasi", "to": "istek"])
         let order = ["KulupSayfasi", "kulupSohbetiAc", "kulupOzelSohbetAc", "istek"].compactMap { path.range(of: $0)?.lowerBound }
         #expect(order.count == 4 && order == order.sorted())
     }
 
     @Test func fileDependenciesAndImpact() throws {
         let (s, _) = try server()
-        let (deps, _) = try tool(s, "atlas_file_dependencies", ["project": "deneme", "path": "kulupSohbet.ts"])
+        let (deps, _) = try tool(s, "mapo_file_dependencies", ["project": "deneme", "path": "kulupSohbet.ts"])
         #expect(deps.contains("Uses:\n  apps/mobile/lib/api.ts  ×2"))
-        let (impact, _) = try tool(s, "atlas_impact", ["project": "deneme", "symbol": "istek", "depth": 2])
+        let (impact, _) = try tool(s, "mapo_impact", ["project": "deneme", "symbol": "istek", "depth": 2])
         #expect(impact.contains("Distance 1") && impact.contains("kulupOzelSohbetAc"))
         #expect(impact.contains("Distance 2") && impact.contains("kulupSohbetiAc"))
     }
 
     @Test func singleProjectNeedsNoName() throws {
         let (s, _) = try server()
-        let (text, isError) = try tool(s, "atlas_search", ["query": "istek"])
+        let (text, isError) = try tool(s, "mapo_search", ["query": "istek"])
         #expect(!isError && text.contains("istek"))
     }
 
     @Test func toolErrorsAreReadable() throws {
         let (s, _) = try server()
-        let (a, e1) = try tool(s, "atlas_node", ["project": "olmayan", "symbol": "x"])
+        let (a, e1) = try tool(s, "mapo_node", ["project": "olmayan", "symbol": "x"])
         #expect(e1 && a.contains("deneme"))
-        let (b, e2) = try tool(s, "atlas_callers", ["project": "deneme"])
+        let (b, e2) = try tool(s, "mapo_callers", ["project": "deneme"])
         #expect(e2 && b.contains("symbol"))
-        let (c, e3) = try tool(s, "atlas_callers", ["project": "deneme", "symbol": "zzqqxx"])
-        #expect(e3 && c.contains("atlas_search"))
+        let (c, e3) = try tool(s, "mapo_callers", ["project": "deneme", "symbol": "zzqqxx"])
+        #expect(e3 && c.contains("mapo_search"))
     }
 
     @Test func mapRebuildIsPickedUp() throws {
         let (s, base) = try server()
-        _ = try tool(s, "atlas_search", ["query": "istek"])
+        _ = try tool(s, "mapo_search", ["query": "istek"])
         let lib = try String(contentsOf: base.appendingPathComponent("library.json"), encoding: .utf8)
         let id = try #require(lib.range(of: #"[0-9A-F-]{36}"#, options: .regularExpression)).lowerBound
         let uuid = String(lib[id...].prefix(36))
-        let graphURL = AtlasPaths(base: base).graphFile(UUID(uuidString: uuid)!)
+        let graphURL = MapoPaths(base: base).graphFile(UUID(uuidString: uuid)!)
         var json = try String(contentsOf: graphURL, encoding: .utf8)
         json = json.replacingOccurrences(of: "\"istek()\"", with: "\"yeniIstek()\"")
         try json.write(to: graphURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: graphURL.path)
-        let (text, _) = try tool(s, "atlas_search", ["query": "yeniIstek"])
+        let (text, _) = try tool(s, "mapo_search", ["query": "yeniIstek"])
         #expect(text.contains("yeniIstek"))
     }
 }
@@ -118,7 +118,7 @@ struct MCPServerTests {
 @Suite("Ajan entegrasyonları")
 struct AgentIntegrationTests {
     private func home() throws -> URL {
-        let h = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-home-\(UUID().uuidString)")
+        let h = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-home-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: h, withIntermediateDirectories: true)
         return h
     }
@@ -127,15 +127,15 @@ struct AgentIntegrationTests {
         let h = try home()
         let url = h.appendingPathComponent(".claude.json")
         try Data(#"{"theme":"dark","mcpServers":{"linear":{"type":"http","url":"https://x"}},"projects":{"a":1}}"#.utf8).write(to: url)
-        try AgentIntegrations.connect(.claudeCode, executable: "/Applications/Atlas.app/Contents/MacOS/atlas-mcp", home: h)
+        try AgentIntegrations.connect(.claudeCode, executable: "/Applications/Mapo.app/Contents/MacOS/mapo-mcp", home: h)
         let obj = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         #expect(obj["theme"] as? String == "dark")
         #expect((obj["projects"] as? [String: Any])?["a"] as? Int == 1)
         let servers = try #require(obj["mcpServers"] as? [String: Any])
         #expect(servers["linear"] != nil)
-        #expect((servers["atlas"] as? [String: Any])?["command"] as? String == "/Applications/Atlas.app/Contents/MacOS/atlas-mcp")
+        #expect((servers["mapo"] as? [String: Any])?["command"] as? String == "/Applications/Mapo.app/Contents/MacOS/mapo-mcp")
         #expect(AgentIntegrations.isConnected(.claudeCode, home: h))
-        #expect(FileManager.default.fileExists(atPath: url.path + ".atlas-backup"))
+        #expect(FileManager.default.fileExists(atPath: url.path + ".mapo-backup"))
 
         try AgentIntegrations.disconnect(.claudeCode, home: h)
         #expect(!AgentIntegrations.isConnected(.claudeCode, home: h))
@@ -145,7 +145,7 @@ struct AgentIntegrationTests {
 
     @Test func createsMissingConfig() throws {
         let h = try home()
-        try AgentIntegrations.connect(.cursor, executable: "/x/atlas-mcp", home: h)
+        try AgentIntegrations.connect(.cursor, executable: "/x/mapo-mcp", home: h)
         #expect(AgentIntegrations.isConnected(.cursor, home: h))
         let mode = try FileManager.default.attributesOfItem(atPath: h.appendingPathComponent(".cursor/mcp.json").path)[.posixPermissions] as? Int
         #expect(mode == 0o600)
@@ -177,23 +177,23 @@ struct AgentIntegrationTests {
         A = "1"
 
         """
-        let connected = AgentIntegrations.codexConnect(original, executable: "/Applications/Atlas.app/Contents/MacOS/atlas-mcp")
+        let connected = AgentIntegrations.codexConnect(original, executable: "/Applications/Mapo.app/Contents/MacOS/mapo-mcp")
         #expect(connected.hasPrefix(original.trimmingCharacters(in: .newlines)))
-        #expect(connected.contains("[mcp_servers.atlas]\ncommand = \"/Applications/Atlas.app/Contents/MacOS/atlas-mcp\"\nargs = []"))
+        #expect(connected.contains("[mcp_servers.mapo]\ncommand = \"/Applications/Mapo.app/Contents/MacOS/mapo-mcp\"\nargs = []"))
         // Re-connecting replaces, never duplicates.
         let twice = AgentIntegrations.codexConnect(connected, executable: "/new/path")
-        #expect(twice.components(separatedBy: "[mcp_servers.atlas]").count == 2)
-        #expect(twice.contains("/new/path") && !twice.contains("/Applications/Atlas.app"))
+        #expect(twice.components(separatedBy: "[mcp_servers.mapo]").count == 2)
+        #expect(twice.contains("/new/path") && !twice.contains("/Applications/Mapo.app"))
         // Disconnect restores the original content.
         let removed = AgentIntegrations.codexDisconnect(twice)
         #expect(removed.trimmingCharacters(in: .newlines) == original.trimmingCharacters(in: .newlines))
         #expect(removed.contains("[mcp_servers.node_repl.env]\nA = \"1\""))
     }
 
-    @Test func codexAtlasSubtablesRemoved() {
-        let text = "[mcp_servers.atlas]\ncommand = \"x\"\n\n[mcp_servers.atlas.env]\nK = \"v\"\n\n[other]\na = 1\n"
+    @Test func codexMapoSubtablesRemoved() {
+        let text = "[mcp_servers.mapo]\ncommand = \"x\"\n\n[mcp_servers.mapo.env]\nK = \"v\"\n\n[other]\na = 1\n"
         let out = AgentIntegrations.codexDisconnect(text)
-        #expect(!out.contains("atlas"))
+        #expect(!out.contains("mapo"))
         #expect(out.contains("[other]\na = 1"))
     }
 

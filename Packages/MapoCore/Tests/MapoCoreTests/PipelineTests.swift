@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AtlasCore
+@testable import MapoCore
 
 @Suite("Harita verisi")
 struct MapPayloadTests {
@@ -117,7 +117,7 @@ struct MapPayloadTests {
     }
 
     @Test func minifiedDetection() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-min-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-min-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let bundle = dir.appendingPathComponent("map.js")
         try Data(String(repeating: "var a=1;", count: 2_000).utf8).write(to: bundle)
@@ -140,7 +140,7 @@ struct MapPayloadTests {
     @Test func testPathDetection() {
         #expect(MapPayload.isTestPath("apps/mobile/__tests__/a.test.tsx"))
         #expect(MapPayload.isTestPath("src/foo.spec.ts"))
-        #expect(MapPayload.isTestPath("Packages/AtlasCore/Tests/AtlasCoreTests/GraphTests.swift"))
+        #expect(MapPayload.isTestPath("Packages/MapoCore/Tests/MapoCoreTests/GraphTests.swift"))
         #expect(MapPayload.isTestPath("tests/test_x.py"))
         #expect(!MapPayload.isTestPath("apps/mobile/lib/testere.ts"))
         #expect(!MapPayload.isTestPath("apps/api/src/routes/kulup.ts"))
@@ -247,7 +247,7 @@ struct GitTests {
     }
 
     @Test func headCountsAndChanges() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-git-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-git-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         #expect(await GitInfo.head(at: dir) == nil)
 

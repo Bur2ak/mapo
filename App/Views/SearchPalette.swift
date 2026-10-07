@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 /// ⌘K palette floating over the map. ↑↓ to move, ↩ to fly there,

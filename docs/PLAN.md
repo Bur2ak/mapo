@@ -1,4 +1,6 @@
-# Atlas — Ürün ve Yol Planı
+# Mapo — Ürün ve Yol Planı
+
+> 7 Ekim 2026'ya kadar adı **Atlas**'tı (A27). Aşağıdaki geçmiş kararlar o adla yazıldı ve tarihçe olarak korunuyor.
 
 > Herhangi bir kod projesini canlı, gezilebilir bir haritaya çeviren macOS uygulaması.
 > İnsanlar haritaya bakar, Claude'lar haritayı sorgular, harita kendiliğinden güncel kalır.
@@ -159,3 +161,5 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A24 | MCP sunucusu `atlas-mcp` (stdio, JSON-RPC 2.0, protokol 2025-06-18), uygulamanın içinde `Contents/MacOS/atlas-mcp`. 8 salt okunur araç (projects, search, node, callers, callees, file_dependencies, path, impact); her yanıt dosya:satır + harita güncelliği taşır. Graf değişince (mtime) kendiliğinden yeniden yüklenir. | 7 Ekim 2026 |
 | A25 | Ajan bağlama dört istemci: Claude Code (`~/.claude.json`), **Codex** (`~/.codex/config.toml`), Cursor (`~/.cursor/mcp.json`), Claude Desktop. JSON'da yalnız `mcpServers.atlas`; Codex TOML'unda yalnız `[mcp_servers.atlas]` tablosu değişir, gerisi bayt bayt korunur. İlk yazımda `.atlas-backup`, bozuk JSON'a asla yazılmaz, izinler 0600. | 7 Ekim 2026 |
 | A26 | **0.1.0 hazır (7 Ekim):** Developer ID imzalı, Apple onaylı (uygulama + DMG), Gatekeeper "Notarized Developer ID", Sparkle appcast EdDSA imzalı, 46 MB. Yayın (repo açma + Release) isim ve lisans kararını bekliyor. Üçüncü taraf: 43 bileşen, hepsi serbest lisanslı (MIT/BSD/Apache/PSF); tree-sitter-groovy lisans dosyası göndermediği için upstream manifestten MIT metni eklendi. | 7 Ekim 2026 |
+| A27 | **Ad: Mapo** (Atlas'tan). Sebep: OpenAI'ın "ChatGPT Atlas" Mac tarayıcısıyla karışma; Burak kısa, kolay okunur bir ad istedi. Kontrol: GitHub'da aynı alanda proje yok, Mac App Store'da "Mapo" yok; getmapo.app / mapoapp.com boş (mapo.app/.dev/.io alınmış). Bundle `io.github.bur2ak.mapo`, repo `Bur2ak/mapo`, MCP sunucusu `mapo` / araçlar `mapo_*`. Erken kullanıcılar için `LegacyMigration`: veri klasörü, ayarlar, Anahtar Zinciri token'ı taşınır; ajanlardaki eski `atlas` girdisi bağlanınca silinir. Korunanlar: Sparkle anahtar hesabı `atlas`, notary profili `atlas-notary` (Anahtar Zinciri adları). | 7 Ekim 2026 |
+| A28 | **Lisans: Apache-2.0** (+ NOTICE). Üçüncü taraf lisanslarının hepsi uyumlu (A26). | 7 Ekim 2026 |

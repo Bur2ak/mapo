@@ -1,16 +1,16 @@
-# Atlas — Tasarım Dili
+# Mapo — Tasarım Dili
 
 ## Kimlik
-Atlas bir **harita**dır; arayüz çerçeve, harita sahnedir. Krom (kenar çubuğu, araç çubuğu, denetçi) sessiz ve sisteme yerli;
+Mapo bir **harita**dır; arayüz çerçeve, harita sahnedir. Krom (kenar çubuğu, araç çubuğu, denetçi) sessiz ve sisteme yerli;
 renk ve hareket yalnız haritada ve yalnız anlam taşıdığında.
 
 - **Kartografi, oyun değil.** Parlama, neon, parçacık efekti yok. İnce çizgiler, net etiketler, katmanlı derinlik.
 - **Durum biçimle anlatılır.** Güncellik bir rozet (renk + ikon + metin), indeksleme bir ilerleme halkası; yalnız renge dayanan durum yok.
-- **Hiç boş ekran yok.** İlk açılışta örnek proje (Atlas'ın kendisi) hazır; boş kütüphane bir eylem sunar.
+- **Hiç boş ekran yok.** İlk açılışta örnek proje (Mapo'ın kendisi) hazır; boş kütüphane bir eylem sunar.
 
 ## Renk
 
-Krom: sistem renkleri (`.background`, `.secondary`, `NSColor.controlAccentColor` değil — Atlas vurgusu).
+Krom: sistem renkleri (`.background`, `.secondary`, `NSColor.controlAccentColor` değil — Mapo vurgusu).
 
 | Jeton | Aydınlık | Karanlık | Kullanım |
 |---|---|---|---|
@@ -40,7 +40,7 @@ Değerler `Map/src/palette.ts` ve `App/Design/Palette.swift`'te tek kaynaktan ü
 │ Projeler     │  [proje ▾]  ● güncel · a1b2c3d   ⌘K  ⚲ ⇄ ◎ │  Denetçi        │
 │              │                                          │                 │
 │ ◉ kontak     │                                          │  kulupSohbetiAc │
-│ ○ atlas      │                HARİTA                    │  fonksiyon      │
+│ ○ mapo      │                HARİTA                    │  fonksiyon      │
 │              │                                          │  lib/kulup…:20  │
 │              │                                          │  Çağırdıkları   │
 │ + Klasör     │                                          │  Çağıranlar     │

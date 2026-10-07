@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AtlasCore
+@testable import MapoCore
 
 @Suite("Değişiklik süzgeci")
 struct ChangeFilterTests {
@@ -54,7 +54,7 @@ struct WatcherTests {
     }
 
     private func tempDir() throws -> URL {
-        let d = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-watch-\(UUID().uuidString)")
+        let d = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-watch-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: d.appendingPathComponent("src"), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: d.appendingPathComponent("node_modules/x"), withIntermediateDirectories: true)
         // Deliberately the /var (not /private/var) spelling: the watcher must

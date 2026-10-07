@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sahte analiz motoru (yalnız DEBUG testleri için, ATLAS_ENGINE ile seçilir).
+"""Sahte analiz motoru (yalnız DEBUG testleri için, MAPO_ENGINE ile seçilir).
 
 graphify'ın komut satırını taklit eder:
   fake-engine.py extract <kök> --code-only --out <çıktı>

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Registers / unregisters Atlas's MCP server in coding agents' config files.
+/// Registers / unregisters Mapo's MCP server in coding agents' config files.
 ///
-/// Every write: back up the original once (`*.atlas-backup`), change only
-/// Atlas's own entry, keep every other setting byte-for-byte where the format
+/// Every write: back up the original once (`*.mapo-backup`), change only
+/// Mapo's own entry, keep every other setting byte-for-byte where the format
 /// allows, write atomically.
 public enum AgentIntegrations {
     public enum Client: String, CaseIterable, Identifiable, Sendable {
@@ -38,7 +38,7 @@ public enum AgentIntegrations {
         }
     }
 
-    public static let serverName = "atlas"
+    public static let serverName = "mapo"
 
     public enum IntegrationError: Error, LocalizedError, Equatable {
         case unreadable(String)
@@ -54,7 +54,7 @@ public enum AgentIntegrations {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return false }
         switch client {
         case .codex:
-            return text.range(of: #"(?m)^\[mcp_servers\.atlas\]"#, options: .regularExpression) != nil
+            return text.range(of: #"(?m)^\[mcp_servers\.mapo\]"#, options: .regularExpression) != nil
         default:
             guard let obj = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
                   let servers = obj["mcpServers"] as? [String: Any] else { return false }
@@ -62,7 +62,7 @@ public enum AgentIntegrations {
         }
     }
 
-    /// Adds or updates Atlas's entry pointing at `executable`.
+    /// Adds or updates Mapo's entry pointing at `executable`.
     public static func connect(_ client: Client, executable: String, home: URL) throws {
         let url = home.appendingPathComponent(client.configPath)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -71,9 +71,10 @@ public enum AgentIntegrations {
         let updated: String
         switch client {
         case .codex:
-            updated = codexConnect(existing ?? "", executable: executable)
+            updated = codexConnect(codexRemove(existing ?? "", name: LegacyMigration.legacyServerName), executable: executable)
         default:
             updated = try jsonUpdate(existing, path: url.path) { servers in
+                servers[LegacyMigration.legacyServerName] = nil
                 servers[serverName] = ["type": "stdio", "command": executable, "args": [String]()]
             }
         }
@@ -87,9 +88,12 @@ public enum AgentIntegrations {
         let updated: String
         switch client {
         case .codex:
-            updated = codexDisconnect(existing)
+            updated = codexRemove(codexDisconnect(existing), name: LegacyMigration.legacyServerName)
         default:
-            updated = try jsonUpdate(existing, path: url.path) { servers in servers[serverName] = nil }
+            updated = try jsonUpdate(existing, path: url.path) { servers in
+                servers[serverName] = nil
+                servers[LegacyMigration.legacyServerName] = nil
+            }
         }
         try write(updated, to: url, keepingModeOf: url)
     }
@@ -114,10 +118,10 @@ public enum AgentIntegrations {
     // MARK: - Codex (TOML)
 
     /// Codex's config is TOML that users edit by hand: no full re-serialisation.
-    /// Only the `[mcp_servers.atlas]` table (and its sub-tables) is replaced.
+    /// Only the `[mcp_servers.mapo]` table (and its sub-tables) is replaced.
     static func codexConnect(_ text: String, executable: String) -> String {
         let block = """
-        [mcp_servers.atlas]
+        [mcp_servers.mapo]
         command = \(tomlString(executable))
         args = []
         """
@@ -127,12 +131,17 @@ public enum AgentIntegrations {
     }
 
     static func codexDisconnect(_ text: String) -> String {
+        codexRemove(text, name: serverName)
+    }
+
+    /// Removes `[mcp_servers.<name>]` and its sub-tables, nothing else.
+    static func codexRemove(_ text: String, name: String) -> String {
         var out: [Substring] = []
         var skipping = false
         for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
             let t = line.trimmingCharacters(in: .whitespaces)
             if t.hasPrefix("[") {
-                skipping = t == "[mcp_servers.atlas]" || t.hasPrefix("[mcp_servers.atlas.")
+                skipping = t == "[mcp_servers.\(name)]" || t.hasPrefix("[mcp_servers.\(name).")
             }
             if !skipping { out.append(line) }
         }
@@ -151,7 +160,7 @@ public enum AgentIntegrations {
 
     private static func backUp(_ url: URL, _ existing: String?) {
         guard let existing else { return }
-        let backup = url.appendingPathExtension("atlas-backup")
+        let backup = url.appendingPathExtension("mapo-backup")
         if !FileManager.default.fileExists(atPath: backup.path) {
             try? existing.write(to: backup, atomically: true, encoding: .utf8)
         }

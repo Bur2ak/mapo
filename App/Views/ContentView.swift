@@ -1,4 +1,4 @@
-import AtlasCore
+import MapoCore
 import SwiftUI
 
 struct ContentView: View {
@@ -31,11 +31,11 @@ struct ContentView: View {
         #if DEBUG
         .task {
             let d = UserDefaults.standard
-            if d.bool(forKey: "atlasOpenSettings") || d.string(forKey: "atlasSettingsTab") != nil { openSettings() }
-            if d.bool(forKey: "atlasShowGitHub") {
+            if d.bool(forKey: "mapoOpenSettings") || d.string(forKey: "mapoSettingsTab") != nil { openSettings() }
+            if d.bool(forKey: "mapoShowGitHub") {
                 try? await Task.sleep(for: .milliseconds(600))
                 NotificationCenter.default.post(name: .showGitHubSheet, object: nil)
-                if d.bool(forKey: "atlasGitHubSignIn") { model.github.signIn() }
+                if d.bool(forKey: "mapoGitHubSignIn") { model.github.signIn() }
             }
         }
         #endif

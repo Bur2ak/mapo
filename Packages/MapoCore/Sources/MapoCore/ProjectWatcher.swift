@@ -77,7 +77,7 @@ public final class ProjectWatcher: @unchecked Sendable {
     private let onChange: @Sendable (ProjectChange) -> Void
 
     private var stream: FSEventStreamRef?
-    private let queue = DispatchQueue(label: "atlas.watcher", qos: .utility)
+    private let queue = DispatchQueue(label: "mapo.watcher", qos: .utility)
     private var pending = ProjectChange()
     private var flushItem: DispatchWorkItem?
 
