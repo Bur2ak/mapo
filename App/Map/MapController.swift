@@ -98,9 +98,13 @@ final class MapController: NSObject {
 
     // MARK: Commands
 
-    func load(projectID: UUID) {
+    /// `keepView`: a refresh of the same project keeps camera, detail and
+    /// selection instead of re-framing the whole map.
+    func load(projectID: UUID, keepView: Bool = false, select: String? = nil) {
         loadedProject = projectID
-        call("atlasMap.load(url)", ["url": AtlasSchemeHandler.payloadURL(projectID)])
+        var args: [String: Any] = ["url": AtlasSchemeHandler.payloadURL(projectID), "keep": keepView]
+        args["sel"] = select ?? NSNull()
+        call("atlasMap.load(url, keep, sel)", args)
     }
 
     func select(_ id: String?) {
@@ -146,7 +150,7 @@ final class MapController: NSObject {
             var pending = queue
             queue.removeAll()
             if let id = loadedProject, !pending.contains(where: { $0.0.hasPrefix("atlasMap.load(") }) {
-                pending.insert(("atlasMap.load(url)", ["url": AtlasSchemeHandler.payloadURL(id)]), at: 0)
+                pending.insert(("atlasMap.load(url, keep, sel)", ["url": AtlasSchemeHandler.payloadURL(id), "keep": false, "sel": NSNull()]), at: 0)
             }
             // Re-apply view options, then queued commands in order.
             call("atlasMap.setDetail(v)", ["v": detail.rawValue])

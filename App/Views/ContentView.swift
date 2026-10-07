@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -27,6 +28,11 @@ struct ContentView: View {
             Task { await model.addFolders(folders) }
             return true
         } isTargeted: { isDropTargeted = $0 }
+        #if DEBUG
+        .task {
+            if UserDefaults.standard.bool(forKey: "atlasOpenSettings") { openSettings() }
+        }
+        #endif
         .alert(item: $model.alert) { alert in
             Alert(title: Text(alert.title), message: Text(alert.message))
         }

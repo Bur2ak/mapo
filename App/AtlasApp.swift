@@ -1,9 +1,21 @@
+import AtlasCore
 import AppKit
 import SwiftUI
 
 @main
 struct AtlasApp: App {
-    @State private var model = AppModel()
+    @State private var model = AppModel(paths: Self.dataPaths)
+    @AppStorage("menuBarIcon") private var menuBarIcon = true
+
+    /// DEBUG: `-atlasDataDir <path>` keeps tests away from the real library.
+    private static var dataPaths: AtlasPaths {
+        #if DEBUG
+        if let dir = UserDefaults.standard.string(forKey: "atlasDataDir") {
+            return AtlasPaths(base: URL(fileURLWithPath: dir, isDirectory: true))
+        }
+        #endif
+        return .standard
+    }
 
     var body: some Scene {
         Window("Atlas", id: "main") {
@@ -24,6 +36,14 @@ struct AtlasApp: App {
 
         Settings {
             SettingsView()
+                .environment(model)
+        }
+
+        MenuBarExtra(isInserted: $menuBarIcon) {
+            MenuBarContent()
+                .environment(model)
+        } label: {
+            MenuBarLabel()
                 .environment(model)
         }
     }

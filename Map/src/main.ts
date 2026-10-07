@@ -91,15 +91,19 @@ const isSmall = () => visibleCount <= SMALL_MAP;
 // ---------------------------------------------------------------------------
 // Loading
 
-async function load(url: string) {
-  setStatus("Harita yükleniyor…");
+async function load(url: string, keepView = false, sel: string | null = null) {
+  if (!keepView) setStatus("Harita yükleniyor…");
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Harita verisi alınamadı (${res.status})`);
+  const view = keepView && renderer ? { bbox: renderer.getCustomBBox(), camera: renderer.getCamera().getState() } : null;
   payload = (await res.json()) as Payload;
-  build(payload);
+  build(payload, view);
+  if (sel && graph.hasNode(sel)) select(sel, { notify: false, fly: false });
 }
 
-function build(p: Payload) {
+type SavedView = { bbox: { x: [number, number]; y: [number, number] } | null; camera: { x: number; y: number; ratio: number; angle: number } };
+
+function build(p: Payload, view: SavedView | null = null) {
   layoutRun++;
   renderer?.kill();
   renderer = null;
@@ -159,13 +163,31 @@ function build(p: Payload) {
   measureTerritoryRadius();
   post({ type: "loaded", nodes: g.order, edges: g.size });
 
-  if (missing === g.order) void runLayout();
+  // A brand-new folder needs its own country, not a corner of a neighbour's.
+  const known = new Set<number>();
+  graph.forEachNode((id, a) => {
+    if (p.positions?.[id]) known.add(a.folder);
+  });
+  let newCountry = false;
+  graph.forEachNode((id, a) => {
+    if (!p.positions?.[id] && !known.has(a.folder)) newCountry = true;
+  });
+  if (missing === g.order || (missing > 0 && newCountry)) void runLayout();
   else {
     // A few new nodes were seeded next to their neighbours; keep the map
     // the user already knows instead of re-laying it out.
     setStatus(null);
-    fitVisible(false);
-    if (missing > 0) savePositions();
+    if (view && view.bbox) {
+      renderer!.setCustomBBox(view.bbox);
+      renderer!.getCamera().setState(view.camera);
+    } else fitVisible(false);
+    if (missing > 0) {
+      // New files arrived with an update: nudge everything apart so they
+      // never hide under a neighbour, then remember the result.
+      noverlap.assign(graph, { maxIterations: 120, settings: { margin: 3, ratio: 1, expansion: 1.05 } });
+      renderer!.refresh();
+      savePositions();
+    }
   }
 }
 
@@ -198,8 +220,11 @@ function placeNodes(p: Payload): number {
     for (const nb of graph.neighbors(id)) {
       const pc = cached[nb];
       if (pc) {
-        a.x = pc[0] + (rand() - 0.5) * 8;
-        a.y = pc[1] + (rand() - 0.5) * 8;
+        // Next to the neighbour, outside its dot (sizes are map units).
+        const angle = rand() * Math.PI * 2;
+        const d = (graph.getNodeAttribute(nb, "size") + a.size) * 1.6;
+        a.x = pc[0] + Math.cos(angle) * d;
+        a.y = pc[1] + Math.sin(angle) * d;
         placed = true;
         break;
       }
@@ -775,14 +800,10 @@ function edgeReducer(id: string, a: EdgeAttrs): Record<string, unknown> {
     return res;
   }
   // At rest a big map shows region ribbons (overlay) instead of thousands of
-  // individual edges; a small map shows the edges *between* countries (the
-  // inside of a country is already told by the country itself).
+  // individual edges; a small map shows its edges.
   if (!isSmall() || !levelMatch) res.hidden = true;
-  else {
-    const ga = groupOf(graph.getNodeAttributes(s)), gb = groupOf(graph.getNodeAttributes(t));
-    if (ga === gb && groupColors.has(ga)) res.hidden = true;
-  }
-  res.color = theme.edge;
+  // Few edges on a small map: a touch more contrast so they read.
+  res.color = mix(theme.edge, theme.edgeActive, 0.3);
   return res;
 }
 
@@ -1161,6 +1182,17 @@ function fitVisible(animate: boolean) {
   });
   if (ids.length === 0) return;
   const b = bbox(ids);
+  // A tiny project must not be blown up to fill the screen: frame at least
+  // MIN_SPAN map units around it so dots keep a sensible size.
+  const MIN_SPAN = 600;
+  for (const [lo, hi] of [["minX", "maxX"], ["minY", "maxY"]] as const) {
+    const span = b[hi] - b[lo];
+    if (span < MIN_SPAN) {
+      const grow = (MIN_SPAN - span) / 2;
+      b[lo] -= grow;
+      b[hi] += grow;
+    }
+  }
   const spanX = Math.max(b.maxX - b.minX, 1), spanY = Math.max(b.maxY - b.minY, 1);
   // Labels extend ~140 px to the right on small maps; names sit above.
   const vw = Math.max(container.clientWidth, 300), vh = Math.max(container.clientHeight, 300);
@@ -1199,7 +1231,8 @@ function recolor() {
 }
 
 const api = {
-  load: (url: string) => load(url).catch((e) => post({ type: "error", message: String(e?.message ?? e) })),
+  load: (url: string, keep = false, sel: string | null = null) =>
+    load(url, keep, sel).catch((e) => post({ type: "error", message: String(e?.message ?? e) })),
   select: (id: string | null) => select(id, { notify: false, fly: true }),
   focus: (id: string) => fly(id, 0.22),
   showPath,

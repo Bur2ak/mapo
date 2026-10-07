@@ -40,6 +40,12 @@ public struct Engine: Sendable {
     public static func locate(bundle: Bundle = .main) -> Engine? {
         let fm = FileManager.default
         var candidates: [URL] = []
+        #if DEBUG
+        // Test double for end-to-end checks (scripts/fake-engine.py).
+        if let fake = ProcessInfo.processInfo.environment["ATLAS_ENGINE"], fm.isExecutableFile(atPath: fake) {
+            return Engine(executable: URL(fileURLWithPath: fake), logDirectory: nil)
+        }
+        #endif
         if let res = bundle.resourceURL {
             candidates.append(res.appendingPathComponent("Engine/bin/graphify"))
         }

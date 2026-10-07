@@ -16,7 +16,7 @@ struct ProjectSidebar: View {
             } else {
                 Section("Projeler") {
                     ForEach(model.projects) { project in
-                        ProjectRow(project: project, behind: model.behind[project.id])
+                        ProjectRow(project: project, behind: model.behind[project.id], indexing: model.indexer.status[project.id])
                             .tag(project.id)
                             .contextMenu { contextMenu(for: project) }
                     }
@@ -58,6 +58,7 @@ struct ProjectSidebar: View {
 private struct ProjectRow: View {
     let project: Project
     let behind: Int?
+    let indexing: IndexCoordinator.Status?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -71,10 +72,17 @@ private struct ProjectRow: View {
                     .truncationMode(.middle)
             }
             Spacer(minLength: 4)
-            Circle()
-                .fill(statusColor)
-                .frame(width: 7, height: 7)
-                .help(statusHelp)
+            switch indexing {
+            case .queued, .running:
+                ProgressView().controlSize(.mini).help("Harita güncelleniyor")
+            case .failed(let message):
+                Circle().fill(Palette.error).frame(width: 7, height: 7).help(message)
+            case nil:
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 7, height: 7)
+                    .help(statusHelp)
+            }
         }
         .padding(.vertical, 2)
         .help(project.rootPath)

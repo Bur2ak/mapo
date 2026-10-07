@@ -63,14 +63,6 @@ private struct WorkspaceView: View {
                 .inspectorColumnWidth(min: 260, ideal: 310, max: 440)
         }
         .toolbar { WorkspaceToolbar(inspectorShown: $inspectorShown) }
-        .alert(
-            "Harita güncellenemedi",
-            isPresented: Binding(get: { workspace.lastIndexError != nil }, set: { if !$0 { workspace.lastIndexError = nil } })
-        ) {
-            Button("Tamam") { workspace.lastIndexError = nil }
-        } message: {
-            Text(workspace.lastIndexError ?? "")
-        }
     }
 }
 
@@ -78,6 +70,7 @@ extension WorkspaceView {
     /// "Güncel · 4270de4" / "3 commit geride" / "Güncelleniyor…" under the title.
     var statusLine: String {
         if workspace.isRefreshing { return String(localized: "Harita güncelleniyor…") }
+        if workspace.lastIndexError != nil { return String(localized: "Son güncelleme başarısız") }
         guard workspace.graph != nil else { return (workspace.project.rootPath as NSString).abbreviatingWithTildeInPath }
         let commit = workspace.project.lastIndex?.commit.map { " · " + $0.prefix(7) } ?? ""
         switch workspace.freshness.behind {
@@ -150,17 +143,26 @@ private struct UpdateButton: View {
             } else {
                 Label("Güncelle", systemImage: "arrow.triangle.2.circlepath")
                     .overlay(alignment: .topTrailing) {
-                        if isStale {
+                        if workspace.lastIndexError != nil {
+                            Circle().fill(Palette.error).frame(width: 7, height: 7).offset(x: 3, y: -2)
+                        } else if isStale {
                             Circle().fill(Palette.stale).frame(width: 7, height: 7).offset(x: 3, y: -2)
                         }
                     }
             }
         }
-        .help(isStale ? "Harita güncel değil, güncelle (⌘R)" : "Haritayı güncelle (⌘R)")
+        .help(helpText)
         .disabled(workspace.isRefreshing || !workspace.canIndex || workspace.graph == nil)
     }
 
     private var isStale: Bool { (workspace.freshness.behind ?? 0) > 0 }
+
+    private var helpText: String {
+        if let error = workspace.lastIndexError {
+            return String(localized: "Son güncelleme başarısız: \(error)\nTekrar denemek için tıkla (⌘R).")
+        }
+        return isStale ? String(localized: "Harita güncel değil, güncelle (⌘R)") : String(localized: "Haritayı güncelle (⌘R)")
+    }
 }
 
 /// + / − / fit, bottom right of the map.

@@ -16,6 +16,20 @@ final class Workspace {
         case failed(String)
     }
 
+    /// What the workspace shows: its own load state, overlaid with the
+    /// coordinator's indexing state while there is no map yet.
+    var state: State {
+        if graph == nil {
+            switch indexer.status[project.id] {
+            case .queued: return .indexing(.scanning)
+            case .running(let phase): return .indexing(phase)
+            case .failed(let message): return .failed(message)
+            case nil: break
+            }
+        }
+        return loadState
+    }
+
     struct Freshness: Equatable {
         var head: GitInfo.Head?
         /// Commits since the indexed commit; nil when unknown / not a repo.
@@ -23,28 +37,36 @@ final class Workspace {
     }
 
     private(set) var project: Project
-    private(set) var state: State = .loading
+    private var loadState: State = .loading
     private(set) var graph: Graph?
     private(set) var search: SearchIndex?
     private(set) var freshness = Freshness()
     /// Minified bundles found on disk (hidden from the map and lists).
     private(set) var noisyFiles: Set<String> = []
-    /// Set while a re-index runs over an existing map (map stays usable).
-    private(set) var isRefreshing = false
+    /// A re-index runs over an existing map (the map stays usable).
+    var isRefreshing: Bool { graph != nil && indexer.isWorking(on: project.id) }
+
+    /// Error from a background refresh; the old map stays on screen.
+    var lastIndexError: String? {
+        get {
+            guard graph != nil, case .failed(let m) = indexer.status[project.id] else { return nil }
+            return m
+        }
+        set { if newValue == nil { indexer.clearError(project.id) } }
+    }
 
     var selectedID: String?
     var isSearchPresented = false
 
     let map: MapController
     private let paths: AtlasPaths
-    private let onProjectChange: (Project) -> Void
+    private let indexer: IndexCoordinator
     @ObservationIgnored private var payloadData: Data?
-    @ObservationIgnored private var indexTask: Task<Void, Never>?
 
-    init(project: Project, paths: AtlasPaths, onProjectChange: @escaping (Project) -> Void) {
+    init(project: Project, paths: AtlasPaths, indexer: IndexCoordinator) {
         self.project = project
         self.paths = paths
-        self.onProjectChange = onProjectChange
+        self.indexer = indexer
         var provider: ((String) -> Data?)?
         map = MapController { id in provider?(id) }
         provider = { [weak self] id in
@@ -64,7 +86,7 @@ final class Workspace {
     func open() async {
         let graphURL = paths.graphFile(project.id)
         guard FileManager.default.fileExists(atPath: graphURL.path) else {
-            state = .needsIndex
+            loadState = .needsIndex
             await refreshFreshness()
             return
         }
@@ -72,7 +94,15 @@ final class Workspace {
         await refreshFreshness()
     }
 
-    private func loadGraph() async {
+    /// The engine finished for this project (possibly in the background):
+    /// pick up the new graph without moving the user's view.
+    func indexFinished(_ updated: Project) async {
+        project = updated
+        await loadGraph(keepView: graph != nil)
+        await refreshFreshness()
+    }
+
+    private func loadGraph(keepView: Bool = false) async {
         let graphURL = paths.graphFile(project.id)
         let layoutURL = layoutFile
         let rootPath = project.rootPath
@@ -94,13 +124,13 @@ final class Workspace {
             self.payloadData = data
             self.noisyFiles = minifiedFiles
             if let id = selectedID, graph.node(id) == nil { selectedID = nil }
-            state = .ready
-            map.load(projectID: project.id)
+            loadState = .ready
+            map.load(projectID: project.id, keepView: keepView, select: selectedID)
             #if DEBUG
             applyScreenshotArguments()
             #endif
         } catch {
-            state = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            loadState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }
 
@@ -115,76 +145,13 @@ final class Workspace {
 
     // MARK: Indexing
 
-    var canIndex: Bool { Engine.locate() != nil }
+    var canIndex: Bool { indexer.engineAvailable }
 
-    func index() {
-        guard indexTask == nil else { return }
-        guard let engine = Engine.locate() else {
-            state = graph == nil ? .failed(Engine.EngineError.notFound.errorDescription ?? "") : state
-            return
-        }
-        let hadGraph = graph != nil
-        isRefreshing = hadGraph
-        if !hadGraph { state = .indexing(.scanning) }
+    func index() { indexer.enqueue(project.id) }
 
-        let root = project.rootURL
-        let output = paths.engineOutput(project.id)
-        let logName = project.id.uuidString
-        let report: @Sendable (Engine.Phase) -> Void = { [weak self] phase in
-            guard let workspace = self else { return }
-            Task { @MainActor in workspace.apply(phase) }
-        }
-        indexTask = Task { [weak self] in
-            do {
-                let head = await GitInfo.head(at: root)
-                try await engine.index(root: root, output: output, logName: logName, progress: report)
-                guard let self else { return }
-                await self.loadGraph()
-                if let graph = self.graph {
-                    self.project.lastIndex = Project.IndexRecord(
-                        finishedAt: .now,
-                        commit: head?.commit,
-                        branch: head?.branch,
-                        engineVersion: nil,
-                        nodeCount: graph.nodes.count,
-                        edgeCount: graph.edges.count,
-                        fileCount: graph.nodes.count { $0.kind == .file }
-                    )
-                    self.onProjectChange(self.project)
-                }
-                await self.refreshFreshness()
-            } catch is CancellationError {
-                if let self, !hadGraph { self.state = .needsIndex }
-            } catch {
-                guard let self else { return }
-                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                if hadGraph {
-                    self.lastIndexError = message
-                } else {
-                    self.state = .failed(message)
-                }
-            }
-            self?.isRefreshing = false
-            self?.indexTask = nil
-        }
-    }
+    func cancelIndex() { indexer.cancel(project.id) }
 
-    private func apply(_ phase: Engine.Phase) {
-        // A refresh over an existing map reports in the toolbar, not full screen.
-        guard !isRefreshing, indexTask != nil else { return }
-        state = .indexing(phase)
-    }
-
-    /// Error from a background refresh; the old map stays on screen.
-    var lastIndexError: String?
-
-    func cancelIndex() {
-        indexTask?.cancel()
-    }
-
-    func close() {
-        indexTask?.cancel()
-    }
+    func close() {}
 
     // MARK: Selection
 

@@ -1,15 +1,84 @@
+import AtlasCore
+import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
     var body: some View {
         TabView {
-            Form {
-                LabeledContent("Sürüm", value: Bundle.main.shortVersion)
-            }
-            .formStyle(.grouped)
-            .tabItem { Label("Genel", systemImage: "gearshape") }
+            GeneralSettings()
+                .tabItem { Label("Genel", systemImage: "gearshape") }
+            AboutSettings()
+                .tabItem { Label("Hakkında", systemImage: "info.circle") }
         }
-        .frame(width: 460, height: 260)
+        .frame(width: 500)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct GeneralSettings: View {
+    @Environment(AppModel.self) private var model
+    @AppStorage("editor") private var editorRaw = Editor.preferred.rawValue
+    @AppStorage("menuBarIcon") private var menuBarIcon = true
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var loginError: String?
+
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section {
+                Toggle(isOn: $model.autoUpdate) {
+                    Text("Haritaları kendiliğinden güncelle")
+                    Text("Kod değiştiğinde, commit atıldığında ya da dal değiştiğinde haritası olan projeler arka planda yeniden analiz edilir.")
+                }
+            }
+            Section {
+                Picker("Dosyaları şununla aç", selection: $editorRaw) {
+                    ForEach(Editor.installed) { Text($0.title).tag($0.rawValue) }
+                }
+            }
+            Section {
+                Toggle("Menü çubuğunda göster", isOn: $menuBarIcon)
+                Toggle(isOn: $launchAtLogin) {
+                    Text("Oturum açılınca başlat")
+                    if let loginError {
+                        Text(loginError).foregroundStyle(Palette.error)
+                    }
+                }
+                .onChange(of: launchAtLogin) { _, on in
+                    do {
+                        if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                        loginError = nil
+                    } catch {
+                        loginError = error.localizedDescription
+                        launchAtLogin = SMAppService.mainApp.status == .enabled
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct AboutSettings: View {
+    var body: some View {
+        Form {
+            LabeledContent("Sürüm", value: Bundle.main.shortVersion)
+            LabeledContent("Gizlilik") {
+                Text("Kodun bu Mac'ten çıkmaz. Atlas analiz verisi göndermez, telemetri toplamaz.")
+                    .multilineTextAlignment(.trailing)
+            }
+            LabeledContent("Analiz motoru") {
+                Link("graphify (Apache-2.0 / MIT)", destination: URL(string: "https://github.com/Graphify-Labs/graphify")!)
+            }
+            LabeledContent("Günlükler") {
+                Button("Finder'da Göster") {
+                    let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/Atlas")
+                    try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+                    NSWorkspace.shared.activateFileViewerSelecting([logs])
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

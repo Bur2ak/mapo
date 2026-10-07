@@ -125,7 +125,9 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | Faz | Durum | Not |
 |---|---|---|
 | 0 | bitti (7 Ekim) | AtlasCore 32 test (gerçek Kontak grafı 0,15 sn), iskelet derleniyor, ikon. |
-| 1 | sürüyor | Harita (sigma/FA2), ⌘K, denetçi + kod önizlemesi, editöre atlama, motor köprüsü, güncellik rozeti hazır; uygulama içinden indeksleme Burak'ın makinesinde denenecek. |
+| 1 | bitti (7 Ekim) | Atlas yerleşimi, bölgeler, ⌘K, denetçi (dosya bağımlılıkları), editöre atlama; uygulama içinden indeksleme Burak'ın makinesinde çalıştı. |
+| 2 | bitti (7 Ekim) | FSEvents izleyici (realpath), tek kuyruklu IndexCoordinator, otomatik güncelleme (kamera korunur, yeni dosya/ülke yerleşimi), menü çubuğu, Ayarlar, oturumda başlat. Uçtan uca sahte motorla doğrulandı. |
+| 3 | sırada | GitHub |
 
 ## 8. Karar kaydı
 
@@ -144,3 +146,7 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A11 | Düğüm boyutları harita biriminde (`itemSizesReference: positions`): yakınlaştıkça büyür, yerleşimin aralığı çizilenle birebir. Ekran pikseliyle yerleşim "çakışmıyor" sanıp ekranda üst üste biniyordu. | 7 Ekim 2026 |
 | A12 | Renk: dosya payı ≥%3 **veya** bağlantı payı ≥%5 olan (en çok 9) bölge eşit aralıklı ton alır, kalanı nötr "Diğer". `packages/shared` tek dosya ama mimarinin kalbi; dosya sayısına bakmak onu griye atıyordu. | 7 Ekim 2026 |
 | A13 | Kenar çubuğu seçimi sistem vurgu rengini kullanır (Mac yerlisi); marka sarısı yalnız Atlas'ın kendi çizdiği öğelerde (seçim halkası, birincil düğmeler). | 7 Ekim 2026 |
+| A14 | İndeksleme proje içinden uygulama düzeyine (`IndexCoordinator`) taşındı: tek kuyruk, aynı anda tek motor, düşük öncelik; arka plan hataları uyarı penceresi değil, alt başlık + kırmızı nokta. | 7 Ekim 2026 |
+| A15 | Otomatik güncelleme yalnız **haritası olan** projelerde; ilk harita her zaman kullanıcının açık kararı. Atlas açılınca kapalıyken geride kalan projeler sıraya alınır. | 7 Ekim 2026 |
+| A16 | Uçtan uca testler gerçek graphify yerine DEBUG'a özel sahte motorla (`ATLAS_ENGINE`, `scripts/fake-engine.py`) ve ayrı veri klasörüyle (`-atlasDataDir`) yapılır; kullanıcının kütüphanesine dokunulmaz. | 7 Ekim 2026 |
+| A17 | Kontak'a önerilen `graphify hook` artık gereksiz (A4): Atlas'ın kendi izleyicisi var. Kuruluysa `graphify hook uninstall`. | 7 Ekim 2026 |

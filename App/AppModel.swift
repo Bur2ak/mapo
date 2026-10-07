@@ -16,7 +16,18 @@ final class AppModel {
     var alert: AlertMessage?
 
     let paths: AtlasPaths
+    let indexer: IndexCoordinator
     private let library: ProjectLibrary
+    /// One file-system watcher per project while auto-update is on.
+    @ObservationIgnored private var watchers: [Project.ID: ProjectWatcher] = [:]
+
+    /// Re-index projects by themselves when their code changes.
+    var autoUpdate: Bool = UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate")
+            syncWatchers()
+        }
+    }
     /// Open workspaces, most recently used last. A few stay warm so switching
     /// projects is instant; older ones are closed.
     @ObservationIgnored private var workspaces: [Project.ID: Workspace] = [:]
@@ -26,6 +37,11 @@ final class AppModel {
     init(paths: AtlasPaths = .standard) {
         self.paths = paths
         self.library = ProjectLibrary(paths: paths)
+        self.indexer = IndexCoordinator(paths: paths)
+        indexer.projectProvider = { [weak self] id in self?.projects.first { $0.id == id } }
+        indexer.onFinished = { [weak self] id, record in
+            Task { await self?.indexFinished(id, record) }
+        }
     }
 
     var selectedProject: Project? {
@@ -41,10 +57,59 @@ final class AppModel {
                 let last = UserDefaults.standard.string(forKey: "lastProject").flatMap(UUID.init(uuidString:))
                 selection = projects.first { $0.id == last }?.id ?? projects.first?.id
             }
+            syncWatchers()
             await refreshStatuses()
+            // Catch up on what changed while Atlas was closed.
+            if autoUpdate {
+                for p in projects where p.lastIndex != nil && (behind[p.id] ?? 0) > 0 { indexer.enqueue(p.id) }
+            }
         } catch {
             alert = AlertMessage(error: error)
         }
+    }
+
+    // MARK: Liveness
+
+    /// Starts / stops watchers to match the library and the setting.
+    private func syncWatchers() {
+        let wanted = autoUpdate ? Set(projects.map(\.id)) : []
+        for (id, w) in watchers where !wanted.contains(id) {
+            w.stop()
+            watchers[id] = nil
+        }
+        for p in projects where wanted.contains(p.id) && watchers[p.id] == nil {
+            let id = p.id
+            let w = ProjectWatcher(root: p.rootURL) { [weak self] change in
+                Task { @MainActor in self?.projectChanged(id, change) }
+            }
+            w.start()
+            watchers[id] = w
+        }
+    }
+
+    private func projectChanged(_ id: Project.ID, _ change: ProjectChange) {
+        guard let project = projects.first(where: { $0.id == id }) else { return }
+        if change.git {
+            Task {
+                await refreshStatus(project)
+                await workspaces[id]?.refreshFreshness()
+            }
+        }
+        // Only projects that already have a map update by themselves; the
+        // first map is always an explicit choice (it can take a while).
+        guard autoUpdate, project.lastIndex != nil else { return }
+        indexer.enqueue(id)
+    }
+
+    private func indexFinished(_ id: Project.ID, _ record: Project.IndexRecord) async {
+        guard var project = projects.first(where: { $0.id == id }) else { return }
+        project.lastIndex = record
+        await save(project)
+        await workspaces[id]?.indexFinished(project)
+    }
+
+    func indexAll() {
+        for p in projects where p.lastIndex != nil { indexer.enqueue(p.id) }
     }
 
     /// Adds every folder in `urls`; reports the first failure, keeps going.
@@ -61,6 +126,7 @@ final class AppModel {
             }
         }
         projects = await library.projects
+        syncWatchers()
         if let lastAdded { selection = lastAdded }
         if let firstError { alert = AlertMessage(error: firstError) }
     }
@@ -69,9 +135,7 @@ final class AppModel {
         recent.removeAll { $0 == project.id }
         recent.append(project.id)
         if let ws = workspaces[project.id] { return ws }
-        let ws = Workspace(project: project, paths: paths) { [weak self] updated in
-            Task { await self?.save(updated) }
-        }
+        let ws = Workspace(project: project, paths: paths, indexer: indexer)
         workspaces[project.id] = ws
         while recent.count > warmWorkspaces {
             let old = recent.removeFirst()
@@ -104,6 +168,8 @@ final class AppModel {
     }
 
     func remove(_ id: Project.ID) async {
+        indexer.cancel(id)
+        watchers.removeValue(forKey: id)?.stop()
         workspaces.removeValue(forKey: id)?.close()
         recent.removeAll { $0 == id }
         do {
