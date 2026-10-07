@@ -23,7 +23,8 @@ settings:
     CODE_SIGN_IDENTITY: "Apple Development"
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: BJRH6882TU
-    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Motor kopyalama betiği proje dışı bir klasörden okuyor.
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_EMIT_LOC_STRINGS: YES
 
@@ -43,6 +44,21 @@ targets:
       - path: App/Resources/Map
         type: folder
         buildPhase: resources
+    postBuildScripts:
+      - name: Gömülü motoru kopyala
+        basedOnDependencyAnalysis: false
+        script: |
+          # scripts/build-engine.sh çıktısı varsa uygulamaya gömülür (PLAN §3.7).
+          SRC="${SRCROOT}/Engine/dist"
+          DST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Engine"
+          if [ -x "${SRC}/bin/graphify" ]; then
+            mkdir -p "${DST}"
+            rsync -a --delete "${SRC}/" "${DST}/"
+            echo "Motor gömüldü: $(du -sh "${DST}" | cut -f1)"
+          else
+            rm -rf "${DST}"
+            echo "warning: Gömülü motor yok (bash scripts/build-engine.sh). Sistem graphify'ı kullanılacak."
+          fi
     dependencies:
       - package: AtlasCore
     settings:

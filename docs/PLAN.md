@@ -127,7 +127,7 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | 0 | bitti (7 Ekim) | AtlasCore 32 test (gerçek Kontak grafı 0,15 sn), iskelet derleniyor, ikon. |
 | 1 | bitti (7 Ekim) | Atlas yerleşimi, bölgeler, ⌘K, denetçi (dosya bağımlılıkları), editöre atlama; uygulama içinden indeksleme Burak'ın makinesinde çalıştı. |
 | 2 | bitti (7 Ekim) | FSEvents izleyici (realpath), tek kuyruklu IndexCoordinator, otomatik güncelleme (kamera korunur, yeni dosya/ülke yerleşimi), menü çubuğu, Ayarlar, oturumda başlat. Uçtan uca sahte motorla doğrulandı. |
-| 3 | kod tamam (7 Ekim), Burak'ın girişiyle doğrulanacak | Device Flow (Client ID Ov23ligebFbA7NFdB2o9, kod üretimi doğrulandı), Anahtar Zinciri, repo listesi, klonla + ilk harita, 10 dk'da bir hızlı ileri güncelleme. |
+| 3 | bitti (7 Ekim) — giriş Burak'ın hesabıyla doğrulandı; repo indirme denemesi bekleniyor | Device Flow (Client ID Ov23ligebFbA7NFdB2o9, kod üretimi doğrulandı), Anahtar Zinciri, repo listesi, klonla + ilk harita, 10 dk'da bir hızlı ileri güncelleme. |
 
 ## 8. Karar kaydı
 
@@ -155,3 +155,4 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A20 | Arka plan güncellemesi yalnız `fetch` + `merge --ff-only`; kirli ağaç, yerel commit, ayrışmış dal varsa dokunulmaz ve sebebi not edilir. | 7 Ekim 2026 |
 | A21 | Atlas'ın birincil düğmesi kendi stili (`.accent`): amber üstüne koyu mürekkep. Sistem `.borderedProminent` beyaz yazı veriyordu (~1.9:1 kontrast). | 7 Ekim 2026 |
 | A22 | Anahtar Zinciri erişimi asla ana iş parçacığında yapılmaz (macOS izin penceresi arayüzü donduruyordu). Geliştirme sürümü sabit "Apple Development" kimliğiyle imzalanır (takım BJRH6882TU) ki izin derlemeler arasında korunsun; ad-hoc imza her derlemede yeniden izin istiyordu. Tüm GitHub isteklerinde 20 sn zaman aşımı. | 7 Ekim 2026 |
+| A23 | Gömülü motor: python-build-standalone 3.12.15 (aarch64) + graphifyy 0.9.79, SHA256SUMS ile doğrulanır, `Engine/dist` → `Resources/Engine`. İlk sürüm yalnız Apple Silicon; Intel Mac'ler sistemde kurulu graphify'a düşer (talep olursa x86_64 ikinci motor). | 7 Ekim 2026 |
