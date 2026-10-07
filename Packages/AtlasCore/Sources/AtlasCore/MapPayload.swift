@@ -1,0 +1,153 @@
+import Foundation
+
+/// The columnar JSON the map renderer consumes (Map/src/types.ts `Payload`).
+public struct MapPayload: Encodable, Sendable {
+    public let version = 1
+    public let nodes: Nodes
+    public let edges: Edges
+    public let communities: [String]
+    public let folders: [String]
+    public let positions: [String: [Double]]?
+
+    public struct Nodes: Encodable, Sendable {
+        public var id: [String] = []
+        public var label: [String] = []
+        public var kind: [Int] = []
+        public var community: [Int] = []
+        public var folder: [Int] = []
+        public var test: [Int] = []
+        public var degree: [Int] = []
+    }
+
+    public struct Edges: Encodable, Sendable {
+        public var s: [Int] = []
+        public var t: [Int] = []
+        public var r: [Int] = []
+    }
+
+    public init(graph: Graph, positions: [String: [Double]]? = nil) {
+        var nodes = Nodes()
+        let folderNames = FolderGrouping(files: graph.nodes.compactMap(\.sourceFile))
+        var folderIndex: [String: Int] = [:]
+        var folders: [String] = []
+
+        for (i, n) in graph.nodes.enumerated() {
+            nodes.id.append(n.id)
+            nodes.label.append(Self.displayLabel(n))
+            nodes.kind.append(Self.kindCode(n.kind))
+            nodes.community.append(n.community ?? 0)
+            let folder = n.sourceFile.map(folderNames.group(of:)) ?? "—"
+            if folderIndex[folder] == nil {
+                folderIndex[folder] = folders.count
+                folders.append(folder)
+            }
+            nodes.folder.append(folderIndex[folder]!)
+            nodes.test.append(n.sourceFile.map(Self.isTestPath) == true ? 1 : 0)
+            let degree = graph.outgoing[i].count(where: { !graph.edges[$0].relation.isContainment })
+                + graph.incoming[i].count(where: { !graph.edges[$0].relation.isContainment })
+            nodes.degree.append(degree)
+        }
+
+        var edges = Edges()
+        edges.s.reserveCapacity(graph.edges.count)
+        for e in graph.edges {
+            edges.s.append(e.sourcePosition)
+            edges.t.append(e.targetPosition)
+            edges.r.append(Self.relationCode(e.relation))
+        }
+
+        self.nodes = nodes
+        self.edges = edges
+        self.folders = folders
+        self.communities = Self.communityNames(graph)
+        self.positions = positions
+    }
+
+    public func encoded() throws -> Data {
+        try JSONEncoder().encode(self)
+    }
+
+    // MARK: - Mapping
+
+    static func displayLabel(_ n: Node) -> String {
+        switch n.kind {
+        case .function, .method: return n.name
+        default: return n.label
+        }
+    }
+
+    static func kindCode(_ k: Node.Kind) -> Int {
+        switch k {
+        case .file: 0
+        case .function: 1
+        case .method: 2
+        case .type: 3
+        case .symbol: 4
+        case .external: 5
+        case .document: 6
+        }
+    }
+
+    static func relationCode(_ r: Relation) -> Int {
+        if r.isContainment { return 0 }
+        if r.isCall { return 1 }
+        if r.isImport { return 2 }
+        return 3
+    }
+
+    static func isTestPath(_ path: String) -> Bool {
+        let p = "/" + path.lowercased()
+        return p.contains("/__tests__/") || p.contains("/test/") || p.contains("/tests/")
+            || p.contains(".test.") || p.contains(".spec.") || p.contains("/spec/")
+            || p.contains("tests/") && p.hasSuffix(".swift")
+    }
+
+    /// Community name = its best-connected member's name (deterministic,
+    /// no LLM). Index-aligned with community ids; gaps get "".
+    static func communityNames(_ graph: Graph) -> [String] {
+        var best: [Int: (degree: Int, name: String)] = [:]
+        for (i, n) in graph.nodes.enumerated() {
+            guard let c = n.community, n.kind != .external else { continue }
+            let degree = graph.incoming[i].count + graph.outgoing[i].count
+            let name = n.kind == .file ? ((n.label as NSString).deletingPathExtension) : n.name
+            if degree > (best[c]?.degree ?? -1) { best[c] = (degree, name) }
+        }
+        guard let maxID = best.keys.max() else { return [] }
+        return (0...maxID).map { best[$0]?.name ?? "" }
+    }
+}
+
+extension Relation {
+    var isContainment: Bool { self == .contains || self == .method }
+}
+
+/// Groups file paths into readable top-level areas. A first component that
+/// holds most of the code (`apps/`, `packages/`, `src/`) is split one level
+/// deeper so `apps/mobile` and `apps/api` stay apart.
+struct FolderGrouping {
+    private let deep: Set<String>
+
+    init(files: [String]) {
+        var byFirst: [String: Set<String>] = [:]
+        var counts: [String: Int] = [:]
+        for f in files {
+            let parts = f.split(separator: "/", omittingEmptySubsequences: true)
+            guard parts.count > 1 else { continue }
+            let first = String(parts[0])
+            counts[first, default: 0] += 1
+            if parts.count > 2 { byFirst[first, default: []].insert(String(parts[1])) }
+        }
+        let total = max(1, counts.values.reduce(0, +))
+        deep = Set(counts.compactMap { first, n in
+            (Double(n) / Double(total) > 0.3 && (byFirst[first]?.count ?? 0) > 1) ? first : nil
+        })
+    }
+
+    func group(of path: String) -> String {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count > 1 else { return "/" }
+        let first = String(parts[0])
+        if deep.contains(first), parts.count > 2 { return "\(first)/\(parts[1])" }
+        return first
+    }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "atlas-map",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --minify --format=iife --target=safari17 --outfile=../App/Resources/Map/map.js && cp src/index.html src/map.css ../App/Resources/Map/",
+    "dev": "esbuild src/main.ts --bundle --format=iife --target=safari17 --sourcemap=inline --outfile=../App/Resources/Map/map.js && cp src/index.html src/map.css ../App/Resources/Map/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sigma/node-border": "3.0.0",
+    "graphology": "0.25.4",
+    "graphology-layout": "0.6.1",
+    "graphology-layout-forceatlas2": "0.10.1",
+    "sigma": "3.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "graphology-types": "0.24.8",
+    "typescript": "5.9.3"
+  }
+}

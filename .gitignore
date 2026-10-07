@@ -7,7 +7,7 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 
-# Harita (web) derleme
+# Harita (web) bağımlılıkları — derleme çıktısı (App/Resources/Map) repoda tutulur (PLAN A8)
 Map/node_modules/
 
 # Gömülü motor (betikle indirilir, Faz 5)

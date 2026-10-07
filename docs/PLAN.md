@@ -125,7 +125,7 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | Faz | Durum | Not |
 |---|---|---|
 | 0 | bitti (7 Ekim) | AtlasCore 32 test (gerçek Kontak grafı 0,15 sn), iskelet derleniyor, ikon. |
-| 1 | sürüyor | |
+| 1 | sürüyor | Harita (sigma/FA2), ⌘K, denetçi + kod önizlemesi, editöre atlama, motor köprüsü, güncellik rozeti hazır; uygulama içinden indeksleme Burak'ın makinesinde denenecek. |
 
 ## 8. Karar kaydı
 
@@ -135,3 +135,7 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A2 | Motor graphify (Apache-2.0 / MIT), sürümü sabit (ilk: 0.9.79), her zaman `--code-only`. Lisans metni uygulama içinde "Teşekkürler" bölümünde. | 7 Ekim 2026 |
 | A3 | Arayüz SwiftUI (macOS 14+); harita gömülü WebGL (sigma.js). Saf Metal çizici şimdilik yok — maliyet/fayda; ihtiyaç olursa ayrı faz. | 7 Ekim 2026 |
 | A4 | Graflar Application Support altında, projeye dosya/hook yazılmaz. Kontak'a 7 Ekim'de önerilen `graphify hook` Atlas canlılığı gelince kaldırılacak. | 7 Ekim 2026 |
+| A5 | Harita varsayılanı **klasöre göre renk + Dosyalar düzeyi**. Graphify Kontak'ta 158 algoritmik küme buldu; 12 tonla anlamsız renk çorbası oluyordu. İnsanlar projeye "mobil / api / panel" diye bakar. Küme renklendirmesi menüde duruyor. | 7 Ekim 2026 |
+| A6 | Yerleşim: ForceAtlas2 linLog; aynı klasör ×3, aynı küme ×2 çekim, klasöre göre tohumlama. Konumlar `layout.json`'a yazılır, ikinci açılış anında. | 7 Ekim 2026 |
+| A7 | Kenarlar opak, zemine önceden karıştırılmış renkler: saydam WKWebView üstünde WebGL alfa toplanarak soluk çizgileri parlak beyaza çeviriyordu. | 7 Ekim 2026 |
+| A8 | Derlenmiş harita (`App/Resources/Map/`) repoda tutulur; uygulamayı derlemek Node istemez. Harita kodu değişince `cd Map && npm run build`. | 7 Ekim 2026 |

@@ -1,0 +1,78 @@
+:root {
+  --canvas: #F4F5F7;
+  --grid: #E6E8EC;
+  --label: #1B2230;
+  --muted: #6B7385;
+  --pill: rgba(255, 255, 255, 0.88);
+  --pill-border: rgba(27, 34, 48, 0.10);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0E1015;
+    --grid: #171A21;
+    --label: #E6ECF7;
+    --muted: #7D869A;
+    --pill: rgba(23, 26, 33, 0.88);
+    --pill-border: rgba(230, 236, 247, 0.12);
+    color-scheme: dark;
+  }
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--canvas);
+  font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  /* survey grid */
+  background-image: radial-gradient(circle, var(--grid) 1px, transparent 1.2px);
+  background-size: 28px 28px;
+}
+
+#clusters {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease-out;
+}
+
+.cluster {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  text-shadow: 0 0 6px var(--canvas), 0 0 2px var(--canvas), 0 0 12px var(--canvas);
+  will-change: transform;
+}
+
+#status {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--pill);
+  border: 1px solid var(--pill-border);
+  color: var(--muted);
+  font-size: 12px;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #clusters { transition: none; }
+}

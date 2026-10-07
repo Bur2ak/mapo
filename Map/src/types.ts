@@ -1,0 +1,51 @@
+// Wire format shared with Swift (App/Map/MapPayload.swift). Columnar to keep
+// 10k-node payloads small. Bump `version` on any breaking change.
+
+export const enum Kind {
+  File = 0,
+  Function = 1,
+  Method = 2,
+  Type = 3,
+  Symbol = 4,
+  External = 5,
+  Document = 6,
+}
+
+export const enum Rel {
+  Contains = 0,
+  Call = 1,
+  Import = 2,
+  Other = 3,
+}
+
+export interface Payload {
+  version: 1;
+  nodes: {
+    id: string[];
+    label: string[];
+    kind: Kind[];
+    community: number[];
+    folder: number[];
+    test: (0 | 1)[];
+    degree: number[];
+  };
+  edges: { s: number[]; t: number[]; r: Rel[] };
+  communities: string[];
+  folders: string[];
+  /** Cached layout from a previous session, keyed by node id. */
+  positions: Record<string, [number, number]> | null;
+}
+
+/** 0: files only · 1: + types, functions, methods · 2: everything. */
+export type Detail = 0 | 1 | 2;
+export type ColorMode = "community" | "folder";
+
+export type Outgoing =
+  | { type: "ready" }
+  | { type: "loaded"; nodes: number; edges: number }
+  | { type: "select"; id: string | null }
+  | { type: "open"; id: string }
+  | { type: "layoutProgress"; value: number }
+  | { type: "detail"; value: Detail }
+  | { type: "layout"; positions: Record<string, [number, number]> }
+  | { type: "error"; message: string };

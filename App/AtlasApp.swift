@@ -18,6 +18,8 @@ struct AtlasApp: App {
                 Button("Klasör Ekle…") { FolderPicker.present(model: model) }
                     .keyboardShortcut("o")
             }
+            MapCommands()
+            InspectorCommands()
         }
 
         Settings {

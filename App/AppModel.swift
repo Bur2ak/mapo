@@ -13,6 +13,11 @@ final class AppModel {
 
     let paths: AtlasPaths
     private let library: ProjectLibrary
+    /// Open workspaces, most recently used last. A few stay warm so switching
+    /// projects is instant; older ones are closed.
+    @ObservationIgnored private var workspaces: [Project.ID: Workspace] = [:]
+    @ObservationIgnored private var recent: [Project.ID] = []
+    private let warmWorkspaces = 3
 
     init(paths: AtlasPaths = .standard) {
         self.paths = paths
@@ -51,7 +56,33 @@ final class AppModel {
         if let firstError { alert = AlertMessage(error: firstError) }
     }
 
+    func workspace(for project: Project) -> Workspace {
+        recent.removeAll { $0 == project.id }
+        recent.append(project.id)
+        if let ws = workspaces[project.id] { return ws }
+        let ws = Workspace(project: project, paths: paths) { [weak self] updated in
+            Task { await self?.save(updated) }
+        }
+        workspaces[project.id] = ws
+        while recent.count > warmWorkspaces {
+            let old = recent.removeFirst()
+            workspaces.removeValue(forKey: old)?.close()
+        }
+        return ws
+    }
+
+    private func save(_ project: Project) async {
+        do {
+            try await library.update(project)
+            projects = await library.projects
+        } catch {
+            alert = AlertMessage(error: error)
+        }
+    }
+
     func remove(_ id: Project.ID) async {
+        workspaces.removeValue(forKey: id)?.close()
+        recent.removeAll { $0 == id }
         do {
             try await library.remove(id)
             projects = await library.projects

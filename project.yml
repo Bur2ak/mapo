@@ -36,6 +36,12 @@ targets:
     platform: macOS
     sources:
       - path: App
+        excludes:
+          - Resources/Map/**
+      # Harita derlemesi (Map/ → npm run build) klasör olarak paketlenir.
+      - path: App/Resources/Map
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: AtlasCore
     settings:

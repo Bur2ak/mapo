@@ -88,7 +88,9 @@ public enum GraphLoader {
         let label = r.label ?? r.id
         if label.hasSuffix("()") { return label.hasPrefix(".") ? .method : .function }
         if r.callableClass == true { return .type }
-        if let file = r.sourceFile, !file.isEmpty, (file as NSString).lastPathComponent == label || file == label {
+        // graphify disambiguates same-named files with their folder
+        // ("kulupler/[id].tsx"), so a label that is a path suffix is a file.
+        if let file = r.sourceFile, !file.isEmpty, file == label || file.hasSuffix("/" + label) {
             return .file
         }
         return .symbol

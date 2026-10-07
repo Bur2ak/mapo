@@ -1,0 +1,56 @@
+import Foundation
+
+/// Minimal git queries via the system `git`. Every call is read-only.
+public enum GitInfo {
+    public struct Head: Sendable, Equatable {
+        public let commit: String
+        public let branch: String?
+    }
+
+    /// nil when `root` is not inside a git work tree (or git is missing).
+    public static func head(at root: URL) async -> Head? {
+        guard let commit = await git(["rev-parse", "HEAD"], at: root), isHex(commit) else { return nil }
+        let branch = await git(["rev-parse", "--abbrev-ref", "HEAD"], at: root)
+        return Head(commit: commit, branch: branch == "HEAD" ? nil : branch)
+    }
+
+    /// Commits reachable from HEAD but not from `commit`. nil if unknown
+    /// (e.g. the indexed commit was rebased away).
+    public static func commitsSince(_ commit: String, at root: URL) async -> Int? {
+        guard isHex(commit) else { return nil }
+        return await git(["rev-list", "--count", "\(commit)..HEAD"], at: root).flatMap(Int.init)
+    }
+
+    /// Files changed in the last `count` commits plus the working tree.
+    public static func recentlyChangedFiles(at root: URL, commits count: Int = 5) async -> Set<String> {
+        var files = Set<String>()
+        if let log = await git(["log", "-\(count)", "--name-only", "--pretty=format:"], at: root) {
+            files.formUnion(log.split(separator: "\n").map(String.init).filter { !$0.isEmpty })
+        }
+        if let status = await git(["status", "--porcelain"], at: root) {
+            for line in status.split(separator: "\n") where line.count > 3 {
+                var path = String(line.dropFirst(3))
+                if let arrow = path.range(of: " -> ") { path = String(path[arrow.upperBound...]) }
+                files.insert(path.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+            }
+        }
+        return files
+    }
+
+    static func isHex(_ s: String) -> Bool {
+        !s.isEmpty && s.count <= 64 && s.allSatisfy(\.isHexDigit)
+    }
+
+    static func git(_ args: [String], at root: URL) async -> String? {
+        let result = try? await ProcessRunner.run(
+            executable: URL(fileURLWithPath: "/usr/bin/git"),
+            arguments: ["-C", root.path] + args,
+            environment: ProcessRunner.cleanEnvironment(extra: ["GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0"])
+        )
+        guard let result, result.status == 0 else { return nil }
+        // Trailing only: porcelain status lines start with a meaningful space.
+        var out = Substring(result.stdout)
+        while let last = out.last, last.isWhitespace { out.removeLast() }
+        return String(out)
+    }
+}
