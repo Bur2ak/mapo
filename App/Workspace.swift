@@ -96,6 +96,9 @@ final class Workspace {
             if let id = selectedID, graph.node(id) == nil { selectedID = nil }
             state = .ready
             map.load(projectID: project.id)
+            #if DEBUG
+            applyScreenshotArguments()
+            #endif
         } catch {
             state = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
@@ -201,6 +204,27 @@ final class Workspace {
         guard url.standardizedFileURL.path.hasPrefix(project.rootURL.standardizedFileURL.path) else { return nil }
         return url
     }
+
+    #if DEBUG
+    /// Visual QA harness: `-atlasDetail 1 -atlasZoom 2.5 -atlasSelect <id> -atlasSearch <q>`
+    /// puts the map in a given state on launch, so screenshots never depend
+    /// on synthesized clicks reaching the window.
+    private func applyScreenshotArguments() {
+        let d = UserDefaults.standard
+        if d.object(forKey: "atlasDetail") != nil, let level = MapController.Detail(rawValue: d.integer(forKey: "atlasDetail")) {
+            map.detail = level
+        }
+        let zoom = d.double(forKey: "atlasZoom")
+        let select = d.string(forKey: "atlasSelect")
+        let search = d.string(forKey: "atlasSearch")
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.2))
+            if zoom > 0 { map.zoom(zoom) }
+            if let select, let id = graph?.node(select)?.id ?? search.flatMap({ _ in nil }) { self.select(id) }
+            if let search, let hit = self.search?.search(search).first, let n = node(at: hit.position) { self.select(n.id) }
+        }
+    }
+    #endif
 
     // MARK: Map events
 

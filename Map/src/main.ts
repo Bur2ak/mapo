@@ -648,6 +648,7 @@ function createRenderer() {
     zoomToSizeRatioFunction: (ratio: number) => ratio,
     nodeProgramClasses: { bordered: BorderedProgram },
     defaultDrawNodeHover: drawHover,
+    defaultDrawNodeLabel: drawLabel,
     nodeReducer,
     edgeReducer,
   });
@@ -680,6 +681,7 @@ function createRenderer() {
     e.preventSigmaDefault();
     post({ type: "open", id: near });
   });
+  renderer.on("beforeRender", () => (drawnLabels.length = 0));
   renderer.on("afterRender", drawOverlay);
   renderer.getCamera().on("updated", (state) => {
     const before = labelTier(cameraRatio), after = labelTier(state.ratio);
@@ -729,7 +731,7 @@ function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Recor
     if (highlight || (focusSet && (id === hovered || id === selected))) res.forceLabel = true;
     // Neighbours get names through sigma's label grid (no forced pile-ups);
     // only a handful are forced.
-    if (focusSet && !highlight && focusSet.size <= 8) res.forceLabel = true;
+    if (focusSet && !highlight && focusSet.size <= 24) res.forceLabel = true;
   }
   if (id === selected) {
     res.type = "bordered";
@@ -805,8 +807,8 @@ function countVisible() {
   visibleCount = n;
   renderer?.setSetting("labelRenderedSizeThreshold", isSmall() ? 0 : 7);
   // Small maps: every name (overlaps were resolved by separateLabels).
-  renderer?.setSetting("labelDensity", isSmall() ? 100 : 0.7);
-  renderer?.setSetting("labelGridCellSize", isSmall() ? 10 : 120);
+  renderer?.setSetting("labelDensity", isSmall() ? 100 : 1.6);
+  renderer?.setSetting("labelGridCellSize", isSmall() ? 10 : 70);
 }
 
 function recomputeFocus() {
@@ -814,7 +816,7 @@ function recomputeFocus() {
   // While focused, every lit node may be named (the grid still prevents
   // overlaps); at rest the size threshold keeps big maps quiet.
   renderer?.setSetting("labelRenderedSizeThreshold", focus || isSmall() ? 0 : 7);
-  renderer?.setSetting("labelDensity", isSmall() ? 100 : focus ? 1.2 : 0.7);
+  renderer?.setSetting("labelDensity", isSmall() ? 100 : focus ? 2.5 : 1.6);
   if (!focus || !graph.hasNode(focus)) focusSet = null;
   else {
     focusSet = new Set<string>();
@@ -826,6 +828,36 @@ function recomputeFocus() {
     });
   }
   renderer?.refresh({ skipIndexation: true });
+}
+
+/** Label boxes drawn this frame (viewport px), for collision checks. */
+const drawnLabels: { x0: number; y0: number; x1: number; y1: number }[] = [];
+
+/**
+ * Sigma's label grid limits density but lets labels overlap. Skip a label
+ * that would collide with one already drawn this frame; sigma draws bigger
+ * (and forced) nodes first, so the important names win.
+ */
+function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  data: PartialButFor<NodeDisplayData, "x" | "y" | "size" | "label" | "color">,
+  settings: Settings<NodeAttrs, EdgeAttrs>,
+) {
+  if (!data.label) return;
+  const size = settings.labelSize;
+  ctx.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
+  const w = ctx.measureText(data.label).width;
+  const x = data.x + data.size + 3, y = data.y + size / 3;
+  const box = { x0: x - 2, y0: data.y - size / 2 - 2, x1: x + w + 2, y1: data.y + size / 2 + 2 };
+  if (drawnLabels.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) return;
+  drawnLabels.push(box);
+  // Halo keeps names readable over territories and edges.
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = theme.canvas;
+  ctx.lineJoin = "round";
+  ctx.strokeText(data.label, x, y);
+  ctx.fillStyle = theme.label;
+  ctx.fillText(data.label, x, y);
 }
 
 function drawHover(
@@ -1016,7 +1048,25 @@ function select(id: string | null, opts: { notify: boolean; fly: boolean }) {
   highlight = null;
   recomputeFocus();
   if (opts.notify) post({ type: "select", id });
-  if (id && opts.fly) fly(id, 0.22);
+  if (id && opts.fly) frameNeighbourhood(id);
+}
+
+/**
+ * Brings a node and the neighbours drawn at this level into view (searching
+ * `kulupSohbetiAc` should show who calls it and what it calls, not a lone
+ * dot with lines leaving the screen). Very wide neighbourhoods fall back to
+ * the node itself.
+ */
+function frameNeighbourhood(id: string) {
+  if (!renderer) return;
+  const attrs = graph.getNodeAttributes(id);
+  if (!isVisible(attrs)) {
+    if (attrs.noise && !showNoise) setNoise(true);
+    raiseDetail(requiredDetail(attrs.kind));
+  }
+  const ids = focusSet && focusSet.size <= 60 ? [...focusSet] : [id];
+  if (ids.length === 1) return fly(id, attrs.kind === Kind.File ? 0.22 : 0.07);
+  fitTo(ids);
 }
 
 function fly(id: string, ratio: number) {
@@ -1136,7 +1186,7 @@ function fitTo(ids: string[]) {
   if (!isFinite(minX)) return;
   const span = Math.max(maxX - minX, maxY - minY);
   renderer.getCamera().animate(
-    { x: (minX + maxX) / 2, y: (minY + maxY) / 2, ratio: Math.min(1.1, Math.max(0.08, span * 1.5)) },
+    { x: (minX + maxX) / 2, y: (minY + maxY) / 2, ratio: Math.min(1.1, Math.max(0.03, span * 1.6)) },
     { duration: duration(), easing: "cubicInOut" },
   );
 }
