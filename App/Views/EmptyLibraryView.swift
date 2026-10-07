@@ -24,10 +24,13 @@ struct EmptyLibraryView: View {
                     .frame(maxWidth: 360)
             }
 
-            Button("Klasör Seç…") { FolderPicker.present(model: model) }
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .tint(Palette.accent)
+            HStack(spacing: 12) {
+                Button("Klasör Seç…") { FolderPicker.present(model: model) }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.accent)
+                Button("GitHub'dan Ekle…") { NotificationCenter.default.post(name: .showGitHubSheet, object: nil) }
+            }
+            .controlSize(.large)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

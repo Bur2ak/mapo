@@ -30,7 +30,13 @@ struct ContentView: View {
         } isTargeted: { isDropTargeted = $0 }
         #if DEBUG
         .task {
-            if UserDefaults.standard.bool(forKey: "atlasOpenSettings") { openSettings() }
+            let d = UserDefaults.standard
+            if d.bool(forKey: "atlasOpenSettings") { openSettings() }
+            if d.bool(forKey: "atlasShowGitHub") {
+                try? await Task.sleep(for: .milliseconds(600))
+                NotificationCenter.default.post(name: .showGitHubSheet, object: nil)
+                if d.bool(forKey: "atlasGitHubSignIn") { model.github.signIn() }
+            }
         }
         #endif
         .alert(item: $model.alert) { alert in

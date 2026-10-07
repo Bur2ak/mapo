@@ -17,6 +17,12 @@ final class AppModel {
 
     let paths: AtlasPaths
     let indexer: IndexCoordinator
+    let github = GitHubAccount()
+    /// Repositories being cloned (by GitHub id) → last progress line.
+    private(set) var cloning: [Int: String] = [:]
+    /// Why the last background pull left a project alone (dirty tree…).
+    private(set) var syncNotes: [Project.ID: String] = [:]
+    @ObservationIgnored private var syncTimer: Task<Void, Never>?
     private let library: ProjectLibrary
     /// One file-system watcher per project while auto-update is on.
     @ObservationIgnored private var watchers: [Project.ID: ProjectWatcher] = [:]
@@ -59,6 +65,8 @@ final class AppModel {
             }
             syncWatchers()
             await refreshStatuses()
+            await github.restore()
+            startBackgroundSync()
             // Catch up on what changed while Atlas was closed.
             if autoUpdate {
                 for p in projects where p.lastIndex != nil && (behind[p.id] ?? 0) > 0 { indexer.enqueue(p.id) }
@@ -106,6 +114,71 @@ final class AppModel {
         project.lastIndex = record
         await save(project)
         await workspaces[id]?.indexFinished(project)
+    }
+
+    // MARK: GitHub
+
+    /// Clones a repository, adds it, and draws its first map (the user asked
+    /// for it explicitly, so no extra confirmation).
+    func addFromGitHub(_ repo: GitHub.Repository) async {
+        if let existing = projects.first(where: {
+            if case .github(let o, let r) = $0.source { return o == repo.owner && r == repo.name }
+            return false
+        }) {
+            selection = existing.id
+            return
+        }
+        let destination = RepoSync.defaultDestination(for: repo, paths: paths)
+        cloning[repo.id] = String(localized: "Başlıyor…")
+        defer { cloning[repo.id] = nil }
+        do {
+            if !FileManager.default.fileExists(atPath: destination.appendingPathComponent(".git").path) {
+                let token = try await github.accessToken()
+                try await RepoSync.clone(repo.cloneURL, to: destination, token: token) { line in
+                    Task { @MainActor [weak self] in self?.cloning[repo.id] = Self.cloneProgress(line) }
+                }
+            }
+            let project = try await library.add(folder: destination, name: repo.name, source: .github(owner: repo.owner, repo: repo.name))
+            projects = await library.projects
+            syncWatchers()
+            selection = project.id
+            indexer.enqueue(project.id)
+        } catch {
+            alert = AlertMessage(error: error)
+        }
+    }
+
+    /// "Receiving objects:  42% (420/1000)" → "%42".
+    static func cloneProgress(_ line: String) -> String {
+        if let r = line.range(of: #"\d+%"#, options: .regularExpression) {
+            let pct = String(line[r]).dropLast()
+            return line.hasPrefix("Receiving") ? String(localized: "İndiriliyor %\(String(pct))") : String(localized: "Hazırlanıyor %\(String(pct))")
+        }
+        return String(localized: "İndiriliyor…")
+    }
+
+    /// Every 10 minutes: fast-forward GitHub projects (the file watcher then
+    /// re-indexes what changed). Local edits are never touched.
+    private func startBackgroundSync() {
+        syncTimer?.cancel()
+        syncTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(600))
+                await self?.syncGitHubProjects()
+            }
+        }
+    }
+
+    func syncGitHubProjects() async {
+        guard autoUpdate else { return }
+        let token = try? await github.accessToken()
+        for p in projects {
+            guard case .github = p.source else { continue }
+            switch await RepoSync.update(p.rootURL, token: token) {
+            case .skipped(let reason): syncNotes[p.id] = reason
+            case .upToDate, .updated: syncNotes[p.id] = nil
+            }
+        }
     }
 
     func indexAll() {

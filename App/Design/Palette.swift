@@ -32,3 +32,26 @@ extension NSColor {
         )
     }
 }
+
+/// Atlas's primary action: Pusula fill with dark ink text. System
+/// `.borderedProminent` would put white text on amber (~1.9:1 contrast).
+struct AccentButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    func makeBody(configuration: Configuration) -> some View {
+        let large = controlSize == .large
+        configuration.label
+            .font(large ? .body.weight(.semibold) : .callout.weight(.semibold))
+            .foregroundStyle(Color(nsColor: NSColor(hex: 0x1B1305)))
+            .padding(.horizontal, large ? 16 : 12)
+            .padding(.vertical, large ? 7 : 4)
+            .background(Palette.accent.opacity(configuration.isPressed ? 0.8 : 1), in: Capsule())
+            .opacity(isEnabled ? 1 : 0.45)
+            .contentShape(Capsule())
+    }
+}
+
+extension ButtonStyle where Self == AccentButtonStyle {
+    static var accent: AccentButtonStyle { AccentButtonStyle() }
+}

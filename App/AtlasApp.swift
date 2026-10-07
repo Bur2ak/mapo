@@ -29,6 +29,8 @@ struct AtlasApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Klasör Ekle…") { FolderPicker.present(model: model) }
                     .keyboardShortcut("o")
+                Button("GitHub'dan Ekle…") { NotificationCenter.default.post(name: .showGitHubSheet, object: nil) }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
             }
             MapCommands()
             InspectorCommands()

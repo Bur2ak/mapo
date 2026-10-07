@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ProjectSidebar: View {
     @Environment(AppModel.self) private var model
+    @State private var showGitHub = false
 
     var body: some View {
         @Bindable var model = model
@@ -29,22 +30,34 @@ struct ProjectSidebar: View {
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
             HStack {
-                Button {
-                    FolderPicker.present(model: model)
+                Menu {
+                    Button("Klasör Ekle…") { FolderPicker.present(model: model) }
+                        .keyboardShortcut("o")
+                    Button("GitHub'dan Ekle…") { showGitHub = true }
+                        .keyboardShortcut("o", modifiers: [.command, .shift])
                 } label: {
-                    Label("Klasör Ekle", systemImage: "plus")
+                    Label("Proje Ekle", systemImage: "plus")
                 }
-                .buttonStyle(.borderless)
-                .help("Bir proje klasörü ekle (⌘O)")
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Klasör ya da GitHub reposu ekle")
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
+        .sheet(isPresented: $showGitHub) {
+            GitHubSheet().environment(model)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showGitHubSheet)) { _ in showGitHub = true }
     }
 
     @ViewBuilder
     private func contextMenu(for project: Project) -> some View {
+        if case .github(let owner, let repo) = project.source,
+           let url = URL(string: "https://github.com/\(owner)/\(repo)") {
+            Button("GitHub'da Aç") { NSWorkspace.shared.open(url) }
+        }
         Button("Finder'da Göster") {
             NSWorkspace.shared.activateFileViewerSelecting([project.rootURL])
         }
@@ -112,4 +125,8 @@ private struct ProjectRow: View {
         case nil: return String(localized: "Güncellik bilinmiyor")
         }
     }
+}
+
+extension Notification.Name {
+    static let showGitHubSheet = Notification.Name("atlas.showGitHubSheet")
 }

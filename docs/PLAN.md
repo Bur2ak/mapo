@@ -127,7 +127,7 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | 0 | bitti (7 Ekim) | AtlasCore 32 test (gerçek Kontak grafı 0,15 sn), iskelet derleniyor, ikon. |
 | 1 | bitti (7 Ekim) | Atlas yerleşimi, bölgeler, ⌘K, denetçi (dosya bağımlılıkları), editöre atlama; uygulama içinden indeksleme Burak'ın makinesinde çalıştı. |
 | 2 | bitti (7 Ekim) | FSEvents izleyici (realpath), tek kuyruklu IndexCoordinator, otomatik güncelleme (kamera korunur, yeni dosya/ülke yerleşimi), menü çubuğu, Ayarlar, oturumda başlat. Uçtan uca sahte motorla doğrulandı. |
-| 3 | sırada | GitHub |
+| 3 | kod tamam (7 Ekim), Burak'ın girişiyle doğrulanacak | Device Flow (Client ID Ov23ligebFbA7NFdB2o9, kod üretimi doğrulandı), Anahtar Zinciri, repo listesi, klonla + ilk harita, 10 dk'da bir hızlı ileri güncelleme. |
 
 ## 8. Karar kaydı
 
@@ -150,3 +150,7 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A15 | Otomatik güncelleme yalnız **haritası olan** projelerde; ilk harita her zaman kullanıcının açık kararı. Atlas açılınca kapalıyken geride kalan projeler sıraya alınır. | 7 Ekim 2026 |
 | A16 | Uçtan uca testler gerçek graphify yerine DEBUG'a özel sahte motorla (`ATLAS_ENGINE`, `scripts/fake-engine.py`) ve ayrı veri klasörüyle (`-atlasDataDir`) yapılır; kullanıcının kütüphanesine dokunulmaz. | 7 Ekim 2026 |
 | A17 | Kontak'a önerilen `graphify hook` artık gereksiz (A4): Atlas'ın kendi izleyicisi var. Kuruluysa `graphify hook uninstall`. | 7 Ekim 2026 |
+| A18 | GitHub girişi OAuth **Device Flow**, client secret yok (uygulamaya gömülemez). Token yalnız Anahtar Zinciri'nde (`ThisDeviceOnly`), süreli token + yenileme; yenileme reddedilirse oturum kapanır ve yeniden bağlanma istenir. | 7 Ekim 2026 |
+| A19 | Token git'e yalnız `GIT_CONFIG_*` ortam değişkeniyle, tek komutluk HTTP başlığı olarak verilir: `.git/config`'e, URL'ye, komut satırına (ps) asla yazılmaz; hata metinlerinde maskelenir. | 7 Ekim 2026 |
+| A20 | Arka plan güncellemesi yalnız `fetch` + `merge --ff-only`; kirli ağaç, yerel commit, ayrışmış dal varsa dokunulmaz ve sebebi not edilir. | 7 Ekim 2026 |
+| A21 | Atlas'ın birincil düğmesi kendi stili (`.accent`): amber üstüne koyu mürekkep. Sistem `.borderedProminent` beyaz yazı veriyordu (~1.9:1 kontrast). | 7 Ekim 2026 |

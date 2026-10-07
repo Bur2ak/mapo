@@ -25,6 +25,9 @@ private struct GeneralSettings: View {
     var body: some View {
         @Bindable var model = model
         Form {
+            Section("Hesaplar") {
+                GitHubAccountRow()
+            }
             Section {
                 Toggle(isOn: $model.autoUpdate) {
                     Text("Haritaları kendiliğinden güncelle")
@@ -56,6 +59,30 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct GitHubAccountRow: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        LabeledContent {
+            switch model.github.state {
+            case .signedIn:
+                Button("Bağlantıyı Kes", role: .destructive) { model.github.signOut() }
+            case .signingIn:
+                ProgressView().controlSize(.small)
+            case .signedOut:
+                Button("Bağlan…") { NotificationCenter.default.post(name: .showGitHubSheet, object: nil) }
+            }
+        } label: {
+            Text("GitHub")
+            switch model.github.state {
+            case .signedIn(let user): Text("@\(user.login) olarak bağlı · token Anahtar Zinciri'nde")
+            case .signingIn: Text("Onay bekleniyor…")
+            case .signedOut: Text("Bağlı değil")
+            }
+        }
     }
 }
 

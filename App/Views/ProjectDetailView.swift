@@ -253,7 +253,7 @@ private struct NeedsIndexView: View {
                 Button("Haritayı Çıkar") { workspace.index() }
                     .controlSize(.large)
                     .keyboardShortcut(.defaultAction)
-                    .tint(Palette.accent)
+                    .buttonStyle(.accent)
             } else {
                 EngineMissingNote()
             }
