@@ -7,6 +7,9 @@ public struct MapPayload: Encodable, Sendable {
     public let edges: Edges
     public let communities: [String]
     public let folders: [String]
+    /// Second-level areas ("apps/mobile/app/(sekmeler)/kesfet" → "kesfet"),
+    /// named when the map is zoomed in.
+    public let subfolders: [String]
     public let positions: [String: [Double]]?
     /// File ↔ file links lifted from symbol-level edges (A's function calls
     /// B's → A—B), weighted by how many symbol edges back them. Languages
@@ -27,6 +30,9 @@ public struct MapPayload: Encodable, Sendable {
         public var folder: [Int] = []
         public var test: [Int] = []
         public var degree: [Int] = []
+        public var sub: [Int] = []
+        /// Generated / minified / config files, hidden by default.
+        public var noise: [Int] = []
     }
 
     public struct Edges: Encodable, Sendable {
@@ -35,11 +41,15 @@ public struct MapPayload: Encodable, Sendable {
         public var r: [Int] = []
     }
 
-    public init(graph: Graph, positions: [String: [Double]]? = nil) {
+    public init(graph: Graph, positions: [String: [Double]]? = nil, noisyFiles: Set<String> = []) {
         var nodes = Nodes()
-        let folderNames = FolderGrouping(files: graph.nodes.compactMap(\.sourceFile))
+        // Unique files: grouping weighs folders by files, not by how many
+        // symbols they happen to declare.
+        let folderNames = FolderGrouping(files: Array(Set(graph.nodes.compactMap(\.sourceFile))))
         var folderIndex: [String: Int] = [:]
         var folders: [String] = []
+        var subIndex: [String: Int] = [:]
+        var subfolders: [String] = []
 
         for (i, n) in graph.nodes.enumerated() {
             nodes.id.append(n.id)
@@ -52,6 +62,14 @@ public struct MapPayload: Encodable, Sendable {
                 folders.append(folder)
             }
             nodes.folder.append(folderIndex[folder]!)
+            let sub = n.sourceFile.map { folderNames.subgroup(of: $0, in: folder) } ?? "—"
+            let subKey = folder + "\u{0}" + sub
+            if subIndex[subKey] == nil {
+                subIndex[subKey] = subfolders.count
+                subfolders.append(sub)
+            }
+            nodes.sub.append(subIndex[subKey]!)
+            nodes.noise.append(n.sourceFile.map { noisyFiles.contains($0) || NoiseFilter.isNoise(path: $0) } == true ? 1 : 0)
             nodes.test.append(n.sourceFile.map(Self.isTestPath) == true ? 1 : 0)
             let degree = graph.outgoing[i].count(where: { !graph.edges[$0].relation.isContainment })
                 + graph.incoming[i].count(where: { !graph.edges[$0].relation.isContainment })
@@ -69,6 +87,7 @@ public struct MapPayload: Encodable, Sendable {
         self.nodes = nodes
         self.edges = edges
         self.folders = folders
+        self.subfolders = subfolders
         self.communities = Self.communityNames(graph)
         self.positions = positions
         self.fileLinks = Self.fileLinks(graph)
@@ -130,7 +149,7 @@ public struct MapPayload: Encodable, Sendable {
         return 3
     }
 
-    static func isTestPath(_ path: String) -> Bool {
+    public static func isTestPath(_ path: String) -> Bool {
         let p = "/" + path.lowercased()
         return p.contains("/__tests__/") || p.contains("/test/") || p.contains("/tests/")
             || p.contains(".test.") || p.contains(".spec.") || p.contains("/spec/")
@@ -163,19 +182,34 @@ struct FolderGrouping {
     private let deep: Set<String>
 
     init(files: [String]) {
-        var byFirst: [String: Set<String>] = [:]
-        var counts: [String: Int] = [:]
+        // Split a top-level folder only when it really holds several big
+        // areas: at least two of its sub-folders with ≥10% of all files each
+        // (apps/mobile + apps/api). One big sub-folder plus crumbs stays whole.
+        var subCounts: [String: [String: Int]] = [:]
+        var total = 0
         for f in files {
             let parts = f.split(separator: "/", omittingEmptySubsequences: true)
             guard parts.count > 1 else { continue }
-            let first = String(parts[0])
-            counts[first, default: 0] += 1
-            if parts.count > 2 { byFirst[first, default: []].insert(String(parts[1])) }
+            total += 1
+            if parts.count > 2 { subCounts[String(parts[0]), default: [:]][String(parts[1]), default: 0] += 1 }
         }
-        let total = max(1, counts.values.reduce(0, +))
-        deep = Set(counts.compactMap { first, n in
-            (Double(n) / Double(total) > 0.3 && (byFirst[first]?.count ?? 0) > 1) ? first : nil
+        let threshold = max(2, Double(total) * 0.10)
+        deep = Set(subCounts.compactMap { first, subs in
+            subs.values.filter { Double($0) >= threshold }.count >= 2 ? first : nil
         })
+    }
+
+    /// The folder one level below `group` that holds `path`; files sitting
+    /// directly in the group are "" (no sub-area label). Route-group
+    /// segments like "(sekmeler)" and underscore helpers are skipped so the
+    /// name is the one people use.
+    func subgroup(of path: String, in group: String) -> String {
+        guard group != "/", path.hasPrefix(group + "/") else { return "" }
+        var rest = path.dropFirst(group.count + 1).split(separator: "/").dropLast()
+        while let first = rest.first, (first.hasPrefix("(") && first.hasSuffix(")")) || ["src", "app", "lib", "Sources"].contains(String(first)) && rest.count > 1 {
+            rest = rest.dropFirst()
+        }
+        return rest.first.map(String.init) ?? ""
     }
 
     func group(of path: String) -> String {
@@ -184,5 +218,41 @@ struct FolderGrouping {
         let first = String(parts[0])
         if deep.contains(first), parts.count > 2 { return "\(first)/\(parts[1])" }
         return first
+    }
+}
+
+/// Files that clutter a map without explaining the code: build output,
+/// lockfiles, minified bundles, tool configuration.
+public enum NoiseFilter {
+    static let configNames: Set<String> = [
+        "package.json", "package-lock.json", "tsconfig.json", "jsconfig.json", "yarn.lock", "pnpm-lock.yaml",
+        "bun.lockb", "Package.resolved", "Podfile.lock", "Cargo.lock", "poetry.lock", "composer.lock",
+        "app.json", "eas.json", "babel.config.js", "metro.config.js", "jest.config.js", "eslint.config.js",
+        ".eslintrc.js", ".prettierrc.js", "tailwind.config.js", "postcss.config.js", "vite.config.ts",
+        "next.config.js", "next.config.mjs", "wrangler.toml", "project.yml",
+    ]
+
+    public static func isNoise(path: String) -> Bool {
+        let p = path.lowercased()
+        let name = (path as NSString).lastPathComponent
+        if configNames.contains(name) { return true }
+        if p.hasSuffix(".min.js") || p.hasSuffix(".min.css") || p.hasSuffix(".map") || p.hasSuffix(".lock") { return true }
+        if p.hasSuffix(".d.ts") { return true }
+        for dir in ["/dist/", "/build/", "/out/", "/.next/", "/vendor/", "/node_modules/", "/generated/", "/__generated__/", "/coverage/", "/deriveddata/"] {
+            if ("/" + p).contains(dir) { return true }
+        }
+        return false
+    }
+
+    /// A JS/CSS file whose lines are absurdly long is a bundle, not source.
+    /// Reads at most 64 KB.
+    public static func looksMinified(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        guard ["js", "mjs", "cjs", "css"].contains(ext),
+              let h = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? h.close() }
+        guard let data = try? h.read(upToCount: 65_536), data.count > 4_000 else { return false }
+        let newlines = data.reduce(0) { $0 + ($1 == 10 ? 1 : 0) }
+        return data.count / max(1, newlines) > 400
     }
 }

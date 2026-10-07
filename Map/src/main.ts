@@ -1,13 +1,14 @@
 import Graph from "graphology";
-import FA2Layout from "graphology-layout-forceatlas2/worker";
 import forceAtlas2 from "graphology-layout-forceatlas2";
+import noverlap from "graphology-layout-noverlap";
 import Sigma from "sigma";
 import { createNodeBorderProgram } from "@sigma/node-border";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import type { Settings } from "sigma/settings";
 
-import { clusterColor, DARK, LIGHT, mix, type Theme } from "./palette";
-import { Kind, Rel, type ColorMode, type Detail, type Outgoing, type Payload } from "./types";
+import { DARK, LIGHT, mix, neutralColor, spreadColor, type Theme } from "./palette";
+import { drawRegions, type Bundle, type Territory } from "./regions";
+import { Kind, Rel, type ColorMode, type Detail, type GroupInfo, type Outgoing, type Payload } from "./types";
 
 // ---------------------------------------------------------------------------
 // Bridge
@@ -32,7 +33,9 @@ interface NodeAttrs {
   kind: Kind;
   community: number;
   folder: number;
+  sub: number;
   test: boolean;
+  noise: boolean;
   baseColor: string;
   color: string;
 }
@@ -43,7 +46,8 @@ interface EdgeAttrs {
 }
 
 const container = document.getElementById("map")!;
-const clusterLayer = document.getElementById("clusters")!;
+const regionCanvas = document.getElementById("regions") as HTMLCanvasElement;
+const labelLayer = document.getElementById("labels")!;
 const status = document.getElementById("status")!;
 
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
@@ -52,30 +56,37 @@ const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
 let theme: Theme = darkQuery.matches ? DARK : LIGHT;
 let graph = new Graph<NodeAttrs, EdgeAttrs>({ type: "directed", multi: true, allowSelfLoops: false });
 let renderer: Sigma<NodeAttrs, EdgeAttrs> | null = null;
-let layout: FA2Layout<NodeAttrs, EdgeAttrs> | null = null;
+/** Bumped to cancel a running layout (new load / relayout). */
+let layoutRun = 0;
 let payload: Payload | null = null;
-/** graphify found more than one community (cluster step ran). */
+/** graphify found more than one community (its cluster step ran). */
 let hasCommunities = false;
 
 let detail: Detail = 0;
 let colorMode: ColorMode = "folder";
 let hideTests = false;
+let showNoise = false;
 
 let hovered: string | null = null;
 let selected: string | null = null;
 /** Path / impact highlight: nodes + edges drawn in accent, the rest dimmed. */
 let highlight: { nodes: Set<string>; edges: Set<string> } | null = null;
-/** Neighbourhood of hovered/selected, cached per focus change. */
+/** Neighbourhood of hovered/selected. */
 let focusSet: Set<string> | null = null;
 
-/** Above this camera ratio, node labels give way to cluster labels. */
-const LABEL_RATIO = 0.5;
-/** Maps this small keep their names at every zoom. */
+/** Group id → colour, for the active colour mode. Absent = neutral. */
+let groupColors = new Map<number, string>();
+let groupNames: string[] = [];
+
+/** Maps this small name every node and keep individual edges. */
 const SMALL_MAP = 150;
 let visibleCount = 0;
 let cameraRatio = 1;
+/** Territory disc radius in graph units (from node spacing). */
+let territoryRadius = 10;
 
 const duration = () => (motionQuery.matches ? 0 : 450);
+const isSmall = () => visibleCount <= SMALL_MAP;
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -89,8 +100,7 @@ async function load(url: string) {
 }
 
 function build(p: Payload) {
-  layout?.kill();
-  layout = null;
+  layoutRun++;
   renderer?.kill();
   renderer = null;
   hovered = selected = null;
@@ -100,11 +110,9 @@ function build(p: Payload) {
   const g = new Graph<NodeAttrs, EdgeAttrs>({ type: "directed", multi: true, allowSelfLoops: false });
   const n = p.nodes.id.length;
   hasCommunities = new Set(p.nodes.community).size > 1;
-  const useCommunity = colorMode === "community" && hasCommunities;
 
   for (let i = 0; i < n; i++) {
     const kind = p.nodes.kind[i];
-    const color = groupColor(useCommunity ? p.nodes.community[i] : p.nodes.folder[i], useCommunity);
     g.addNode(p.nodes.id[i], {
       x: 0,
       y: 0,
@@ -113,39 +121,52 @@ function build(p: Payload) {
       kind,
       community: p.nodes.community[i],
       folder: p.nodes.folder[i],
+      sub: p.nodes.sub?.[i] ?? 0,
       test: p.nodes.test[i] === 1,
-      baseColor: color,
-      color,
+      noise: p.nodes.noise?.[i] === 1,
+      baseColor: "#888",
+      color: "#888",
     });
   }
   for (let i = 0; i < p.edges.s.length; i++) {
-    const s = p.nodes.id[p.edges.s[i]], t = p.nodes.id[p.edges.t[i]];
-    if (s === t) continue;
-    const rel = p.edges.r[i];
     const si = p.edges.s[i], ti = p.edges.t[i];
-    // Edges inside a folder / community pull harder, so areas of the
-    // codebase settle into visible regions instead of one ball.
+    if (si === ti) continue;
+    const rel = p.edges.r[i];
+    // Edges inside a folder pull hard and edges across folders barely pull,
+    // so areas of the codebase settle into separate countries.
     const sameFolder = p.nodes.folder[si] === p.nodes.folder[ti];
     const sameCommunity = p.nodes.community[si] === p.nodes.community[ti];
     const base = rel === Rel.Contains ? 3 : rel === Rel.Call ? 1 : 0.5;
-    g.addEdge(s, t, { rel, weight: base * (sameFolder ? 3 : 0.4) * (sameCommunity ? 2 : 1) });
+    g.addEdge(p.nodes.id[si], p.nodes.id[ti], { rel, weight: base * (sameFolder ? 4 : 0.15) * (sameCommunity ? 1.5 : 1) });
   }
   for (let i = 0; i < (p.fileLinks?.s.length ?? 0); i++) {
-    const s = p.nodes.id[p.fileLinks.s[i]], t = p.nodes.id[p.fileLinks.t[i]];
-    if (s === t) continue;
-    // Light in the layout (symbol edges already pull), visible only at file level.
-    g.addEdge(s, t, { rel: Rel.FileLink, weight: Math.min(3, Math.log2(1 + p.fileLinks.w[i])) * 0.5 });
+    const si = p.fileLinks.s[i], ti = p.fileLinks.t[i];
+    if (si === ti) continue;
+    const same = p.nodes.folder[si] === p.nodes.folder[ti];
+    // Light in the layout (symbol edges already pull); visible at file level.
+    g.addEdge(p.nodes.id[si], p.nodes.id[ti], {
+      rel: Rel.FileLink,
+      weight: Math.min(3, Math.log2(1 + p.fileLinks.w[i])) * (same ? 0.6 : 0.1),
+    });
   }
   graph = g;
+  assignColors();
   countVisible();
 
   const missing = placeNodes(p);
   createRenderer();
   countVisible();
+  measureTerritoryRadius();
   post({ type: "loaded", nodes: g.order, edges: g.size });
 
-  if (missing > 0) runLayout(missing === g.order ? "full" : "refine");
-  else setStatus(null);
+  if (missing === g.order) void runLayout();
+  else {
+    // A few new nodes were seeded next to their neighbours; keep the map
+    // the user already knows instead of re-laying it out.
+    setStatus(null);
+    fitVisible(false);
+    if (missing > 0) savePositions();
+  }
 }
 
 /** Restores cached positions; seeds the rest. Returns how many were missing. */
@@ -153,11 +174,10 @@ function placeNodes(p: Payload): number {
   const cached = p.positions ?? {};
   let missing = 0;
   // Seed by folder: the regions people recognise.
-  const groupOf = (attrs: NodeAttrs) => attrs.folder;
   const groups = new Map<number, number>();
-  graph.forEachNode((_, a) => groups.set(groupOf(a), (groups.get(groupOf(a)) ?? 0) + 1));
-  const ordered = [...groups.keys()].sort((a, b) => (groups.get(b)! - groups.get(a)!));
-  const radius = Math.sqrt(graph.order) * 12;
+  graph.forEachNode((_, a) => groups.set(a.folder, (groups.get(a.folder) ?? 0) + 1));
+  const ordered = [...groups.keys()].sort((a, b) => groups.get(b)! - groups.get(a)!);
+  const radius = Math.sqrt(graph.order) * 14;
   const center = new Map<number, [number, number]>();
   ordered.forEach((gid, i) => {
     const angle = (i / ordered.length) * Math.PI * 2;
@@ -174,7 +194,6 @@ function placeNodes(p: Payload): number {
       return;
     }
     missing++;
-    // New node next to an already placed neighbour if any, else its group.
     let placed = false;
     for (const nb of graph.neighbors(id)) {
       const pc = cached[nb];
@@ -186,8 +205,8 @@ function placeNodes(p: Payload): number {
       }
     }
     if (!placed) {
-      const [cx, cy] = center.get(groupOf(a)) ?? [0, 0];
-      const spread = Math.sqrt(groups.get(groupOf(a)) ?? 1) * 6;
+      const [cx, cy] = center.get(a.folder) ?? [0, 0];
+      const spread = Math.sqrt(groups.get(a.folder) ?? 1) * 6;
       a.x = cx + (rand() - 0.5) * spread;
       a.y = cy + (rand() - 0.5) * spread;
     }
@@ -195,48 +214,403 @@ function placeNodes(p: Payload): number {
   return missing;
 }
 
-function runLayout(mode: "full" | "refine") {
-  const n = graph.order;
-  const inferred = forceAtlas2.inferSettings(graph);
-  layout = new FA2Layout(graph, {
-    settings: {
-      ...inferred,
-      barnesHutOptimize: n > 1500,
-      gravity: 0.6,
-      scalingRatio: 4,
-      strongGravityMode: false,
-      adjustSizes: false,
-      linLogMode: true,
-      outboundAttractionDistribution: false,
-      slowDown: mode === "full" ? 2 : 6,
-    },
-    getEdgeWeight: "weight",
-  });
-  const total = mode === "full" ? Math.min(9000, 2000 + n * 1.2) : Math.min(3000, 800 + n * 0.3);
-  const started = performance.now();
+/**
+ * Two-level "atlas" layout:
+ *  1. each folder is laid out on its own into a round country;
+ *  2. countries are placed by the traffic between them, never overlapping.
+ * A single global force layout let folders bleed into each other.
+ */
+async function runLayout() {
+  const run = ++layoutRun;
   setStatus("Harita yerleşiyor…");
-  layout.start();
+  const members = new Map<number, string[]>();
+  graph.forEachNode((id, a) => {
+    let m = members.get(a.folder);
+    if (!m) members.set(a.folder, (m = []));
+    m.push(id);
+  });
+  const groups = [...members.keys()];
+  const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
 
-  const tick = () => {
-    if (!layout) return;
-    const value = Math.min(1, (performance.now() - started) / total);
-    post({ type: "layoutProgress", value });
-    if (value < 1) {
-      // Timer, not rAF: WebKit pauses animation frames for occluded windows,
-      // and the layout must still finish (and be saved) in the background.
-      setTimeout(tick, 200);
-      return;
+  // 1. Countries.
+  const local = new Map<number, { pos: Map<string, [number, number]>; radius: number }>();
+  let done = 0;
+  for (const gid of groups) {
+    const ids = members.get(gid)!;
+    local.set(gid, layoutCountry(ids));
+    done += ids.length;
+    post({ type: "layoutProgress", value: (done / graph.order) * 0.9 });
+    await yieldToUI();
+    if (run !== layoutRun) return;
+  }
+
+  // 2. Continent: countries placed by the traffic between them.
+  const traffic = new Map<string, number>();
+  graph.forEachEdge((_e, ea, _s, _t, sa, ta) => {
+    if (sa.folder === ta.folder || ea.rel === Rel.Contains) return;
+    const k = pairKey(String(sa.folder), String(ta.folder));
+    traffic.set(k, (traffic.get(k) ?? 0) + 1);
+  });
+  const margin = Math.max(...[...local.values()].map((l) => l.radius)) * 0.18 + 30;
+  const centres = arrange(groups.map((gid) => ({ key: String(gid), radius: local.get(gid)!.radius })), traffic, margin);
+
+  // 3. Place every node: country centre + its local position.
+  for (const gid of groups) {
+    const [cx, cy] = centres.get(String(gid))!;
+    for (const [id, [x, y]] of local.get(gid)!.pos) {
+      graph.setNodeAttribute(id, "x", cx + x);
+      graph.setNodeAttribute(id, "y", cy + y);
     }
-    layout.stop();
-    layout.kill();
-    layout = null;
-    setStatus(null);
-    updateClusterLabels(true);
-    const positions: Record<string, [number, number]> = {};
-    graph.forEachNode((id, a) => (positions[id] = [round(a.x), round(a.y)]));
-    post({ type: "layout", positions });
+  }
+  if (run !== layoutRun) return;
+  post({ type: "layoutProgress", value: 1 });
+  separateLabels();
+  measureTerritoryRadius();
+  setStatus(null);
+  renderer?.refresh();
+  fitVisible(true);
+  savePositions();
+}
+
+/**
+ * Places round clusters (countries, provinces) by the traffic between them:
+ * force layout with sizes, then a no-overlap pass so none ever touch.
+ */
+function arrange(
+  items: { key: string; radius: number }[],
+  links: Map<string, number>,
+  margin: number,
+): Map<string, [number, number]> {
+  const out = new Map<string, [number, number]>();
+  if (items.length === 1) {
+    out.set(items[0].key, [0, 0]);
+    return out;
+  }
+  const g = new Graph({ type: "undirected" });
+  const rand = mulberry32(items.length * 31);
+  items.forEach((it, i) => {
+    const angle = (i / items.length) * Math.PI * 2;
+    g.addNode(it.key, { x: Math.cos(angle) * 100 + rand(), y: Math.sin(angle) * 100 + rand(), size: it.radius });
+  });
+  for (const [pair, w] of links) {
+    const [a, b] = pair.split("\u0000");
+    if (g.hasNode(a) && g.hasNode(b) && a !== b && !g.hasEdge(a, b)) g.addEdge(a, b, { weight: w });
+  }
+  forceAtlas2.assign(g, {
+    iterations: 400,
+    getEdgeWeight: (_e, attr) => Math.log2(1 + (attr.weight as number)),
+    settings: { ...forceAtlas2.inferSettings(g), adjustSizes: true, gravity: 1.5, scalingRatio: 6, strongGravityMode: true },
+  });
+  noverlap.assign(g, { maxIterations: 800, settings: { margin, ratio: 1, expansion: 1.05 } });
+  g.forEachNode((key, a) => out.set(key, [a.x, a.y]));
+  return out;
+}
+
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+}
+
+/**
+ * Lays out one folder as a country:
+ *  - files only: force layout with strong gravity (compact, round), then
+ *    pushed apart so no two files touch;
+ *  - every symbol orbits its file on rings, so the file level stays clean
+ *    and the code level shows each file as its own small constellation.
+ * Centred on 0,0; area grows with the number of files.
+ */
+function layoutCountry(ids: string[]): { pos: Map<string, [number, number]>; radius: number } {
+  const pos = new Map<string, [number, number]>();
+  const inside = new Set(ids);
+
+  // Owner file of each node (walk containment edges upward).
+  const ownerOf = (id: string): string | null => {
+    let cur = id;
+    for (let hop = 0; hop < 6; hop++) {
+      if (graph.getNodeAttribute(cur, "kind") === Kind.File) return cur;
+      let parent: string | null = null;
+      graph.forEachInEdge(cur, (_e, ea, s) => {
+        if (!parent && ea.rel === Rel.Contains) parent = s;
+      });
+      if (!parent) return null;
+      cur = parent;
+    }
+    return null;
   };
-  setTimeout(tick, 200);
+  const files = ids.filter((id) => graph.getNodeAttribute(id, "kind") === Kind.File);
+  const orbit = new Map<string, string[]>();
+  const loose: string[] = [];
+  for (const id of ids) {
+    if (graph.getNodeAttribute(id, "kind") === Kind.File) continue;
+    const owner = ownerOf(id);
+    if (owner && inside.has(owner)) {
+      let list = orbit.get(owner);
+      if (!list) orbit.set(owner, (list = []));
+      list.push(id);
+    } else loose.push(id);
+  }
+  // Loose symbols (no file) behave like tiny files.
+  const anchors = files.length > 0 ? files.concat(loose) : ids.slice();
+
+  // Footprint of an anchor = its own dot plus its orbit rings.
+  const SPACING = 9;
+  const ringsFor = (count: number) => {
+    const rings: number[] = [];
+    let left = count, r = 0;
+    while (left > 0) {
+      r += SPACING * 1.3;
+      const cap = Math.max(6, Math.floor((2 * Math.PI * r) / SPACING));
+      rings.push(Math.min(cap, left));
+      left -= cap;
+    }
+    return { rings, outer: r };
+  };
+  const footprint = new Map<string, number>();
+  for (const id of anchors) {
+    const own = graph.getNodeAttribute(id, "size") * 1.2 + 3;
+    footprint.set(id, Math.max(own, ringsFor(orbit.get(id)?.length ?? 0).outer + 4));
+  }
+
+  // Provinces (sub-folders): each laid out on its own, then arranged inside
+  // the country so "kesfet", "sohbet"… are visibly separate areas.
+  const provinces = new Map<number, string[]>();
+  for (const id of anchors) {
+    const p = graph.getNodeAttribute(id, "sub");
+    let list = provinces.get(p);
+    if (!list) provinces.set(p, (list = []));
+    list.push(id);
+  }
+  const provinceLayouts = new Map<string, { pos: Map<string, [number, number]>; radius: number }>();
+  for (const [p, list] of provinces) provinceLayouts.set(String(p), layoutFiles(list, footprint));
+  const crossing = new Map<string, number>();
+  for (const id of anchors) {
+    const pa = String(graph.getNodeAttribute(id, "sub"));
+    graph.forEachOutEdge(id, (_e, ea, _s, t) => {
+      if (ea.rel === Rel.Contains || !inside.has(t)) return;
+      const tOwner = graph.getNodeAttribute(t, "kind") === Kind.File ? t : null;
+      if (!tOwner) return;
+      const pb = String(graph.getNodeAttribute(tOwner, "sub"));
+      if (pa === pb) return;
+      const k = pairKey(pa, pb);
+      crossing.set(k, (crossing.get(k) ?? 0) + 1);
+    });
+  }
+  const meanFoot = [...footprint.values()].reduce((a, b) => a + b, 0) / Math.max(1, footprint.size);
+  const provinceCentres = arrange(
+    [...provinceLayouts.entries()].map(([key, l]) => ({ key, radius: l.radius })),
+    crossing,
+    meanFoot * 1.2 + 6,
+  );
+  for (const [key, l] of provinceLayouts) {
+    const [px, py] = provinceCentres.get(key)!;
+    for (const [id, [x, y]] of l.pos) pos.set(id, [px + x, py + y]);
+  }
+  // Re-centre the country on 0,0.
+  let ccx = 0, ccy = 0;
+  for (const [x, y] of pos.values()) { ccx += x; ccy += y; }
+  ccx /= Math.max(1, pos.size); ccy /= Math.max(1, pos.size);
+  for (const [id, [x, y]] of pos) pos.set(id, [x - ccx, y - ccy]);
+
+  // Orbits: symbols on rings around their file, largest (most connected) first.
+  for (const [file, members] of orbit) {
+    const [fx, fy] = pos.get(file)!;
+    members.sort((a, b) => graph.getNodeAttribute(b, "size") - graph.getNodeAttribute(a, "size"));
+    const { rings } = ringsFor(members.length);
+    let i = 0, r = 0;
+    const phase = (hash(file) % 360) * (Math.PI / 180);
+    for (const count of rings) {
+      r += SPACING * 1.3;
+      for (let j = 0; j < count; j++, i++) {
+        const angle = phase + (j / count) * Math.PI * 2;
+        pos.set(members[i], [fx + Math.cos(angle) * r, fy + Math.sin(angle) * r]);
+      }
+    }
+  }
+
+  let maxR = 0;
+  for (const [id, [x, y]] of pos) maxR = Math.max(maxR, Math.hypot(x, y) + (footprint.get(id) ?? 0));
+  return { pos, radius: Math.max(24, maxR) };
+}
+
+/** Files of one province: compact force layout, no overlaps. */
+function layoutFiles(ids: string[], footprint: Map<string, number>): { pos: Map<string, [number, number]>; radius: number } {
+  const pos = new Map<string, [number, number]>();
+  if (ids.length === 1) {
+    pos.set(ids[0], [0, 0]);
+    return { pos, radius: footprint.get(ids[0])! };
+  }
+  const sub = new Graph({ type: "undirected", multi: true });
+  const rand = mulberry32(ids.length);
+  for (const id of ids) sub.addNode(id, { x: rand() * 100, y: rand() * 100, size: footprint.get(id)! });
+  const set = new Set(ids);
+  for (const id of ids) {
+    graph.forEachOutEdge(id, (_e, ea, _s, t) => {
+      if (t !== id && set.has(t) && ea.rel !== Rel.Contains) sub.addEdge(id, t, { weight: ea.weight });
+    });
+  }
+  const n = ids.length;
+  forceAtlas2.assign(sub, {
+    iterations: n < 300 ? 500 : 250,
+    getEdgeWeight: "weight",
+    settings: {
+      ...forceAtlas2.inferSettings(sub),
+      barnesHutOptimize: n > 800,
+      strongGravityMode: true,
+      gravity: 0.05,
+      scalingRatio: 3,
+      linLogMode: false,
+    },
+  });
+  let cx = 0, cy = 0;
+  sub.forEachNode((_id, a) => { cx += a.x; cy += a.y; });
+  cx /= n; cy /= n;
+  const feet = ids.map((id) => footprint.get(id)!);
+  const meanFoot = feet.reduce((a, b) => a + b, 0) / n;
+  const area = feet.reduce((a, f) => a + Math.PI * (f + 4) ** 2, 0);
+  const target = Math.sqrt(area / Math.PI) * 1.4;
+  const dist = sub.mapNodes((_id, a) => Math.hypot(a.x - cx, a.y - cy)).sort((a, b) => a - b);
+  const r92 = dist[Math.floor(dist.length * 0.92)] || 1;
+  const k = target / r92;
+  sub.forEachNode((_id, a) => {
+    a.x = (a.x - cx) * k;
+    a.y = (a.y - cy) * k;
+    const d = Math.hypot(a.x, a.y);
+    if (d > target * 1.1) { a.x *= (target * 1.1) / d; a.y *= (target * 1.1) / d; }
+  });
+  noverlap.assign(sub, { maxIterations: 1500, settings: { margin: Math.max(2, meanFoot * 0.2), ratio: 1, expansion: 1.1, speed: 3 } });
+  let radius = 0;
+  sub.forEachNode((id, a) => {
+    pos.set(id, [a.x, a.y]);
+    radius = Math.max(radius, Math.hypot(a.x, a.y) + footprint.get(id)!);
+  });
+  return { pos, radius };
+}
+
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+function savePositions() {
+  const positions: Record<string, [number, number]> = {};
+  graph.forEachNode((id, a) => (positions[id] = [round(a.x), round(a.y)]));
+  post({ type: "layout", positions });
+}
+
+/**
+ * Small maps label every node, so nodes are nudged apart until their label
+ * boxes (dot + text to the right) stop overlapping. Big maps rely on
+ * sigma's label grid instead, which hides colliding labels.
+ */
+function separateLabels() {
+  if (!isSmall()) return;
+  const ids: string[] = [];
+  graph.forEachNode((id, a) => {
+    if (isVisible(a)) ids.push(id);
+  });
+  if (ids.length < 2) return;
+  // Work in a unit where the map spans ~1000 px, roughly what the user sees.
+  const bb = bbox(ids);
+  const span = Math.max(bb.maxX - bb.minX, bb.maxY - bb.minY, 1);
+  const k = span / 900; // graph units per px
+  const boxes = ids.map((id) => {
+    const a = graph.getNodeAttributes(id);
+    const textW = a.label.length * 7.3 + 10;
+    return { a, w: (a.size * 2 + textW) * k, h: 20 * k, x0: a.size * k };
+  });
+  // Resolve until clean (or a generous cap): small maps are cheap.
+  for (let pass = 0; pass < 600; pass++) {
+    let moved = false;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const A = boxes[i], B = boxes[j];
+        const ax0 = A.a.x - A.x0, ax1 = ax0 + A.w, ay0 = A.a.y - A.h / 2, ay1 = A.a.y + A.h / 2;
+        const bx0 = B.a.x - B.x0, bx1 = bx0 + B.w, by0 = B.a.y - B.h / 2, by1 = B.a.y + B.h / 2;
+        const ox = Math.min(ax1, bx1) - Math.max(ax0, bx0);
+        const oy = Math.min(ay1, by1) - Math.max(ay0, by0);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        // Push along the cheaper axis; vertical is usually cheaper for text.
+        if (oy < ox) {
+          const d = (oy / 2 + k) * (A.a.y < B.a.y ? -1 : 1);
+          A.a.y += d;
+          B.a.y -= d;
+        } else {
+          const d = (ox / 2 + k) * (A.a.x < B.a.x ? -1 : 1);
+          A.a.x += d;
+          B.a.x -= d;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Colour
+
+/**
+ * Areas big enough to matter get evenly spread hues; the long tail is
+ * neutral so the map does not turn into a rainbow.
+ */
+function assignColors() {
+  if (!payload) return;
+  const useCommunity = colorMode === "community" && hasCommunities;
+  groupNames = useCommunity ? payload.communities : payload.folders;
+  const counts = new Map<number, number>();
+  // Connection weight per group: a small folder everything depends on
+  // (packages/shared) deserves a colour as much as a big one.
+  const weight = new Map<number, number>();
+  let totalWeight = 0;
+  graph.forEachEdge((_e, ea, _s, _t, sa) => {
+    if (ea.rel === Rel.Contains || ea.rel === Rel.FileLink) return;
+    const gid = useCommunity ? sa.community : sa.folder;
+    weight.set(gid, (weight.get(gid) ?? 0) + 1);
+    totalWeight++;
+  });
+  graph.forEachEdge((_e, ea, _s, _t, _sa, ta) => {
+    if (ea.rel === Rel.Contains || ea.rel === Rel.FileLink) return;
+    const gid = useCommunity ? ta.community : ta.folder;
+    weight.set(gid, (weight.get(gid) ?? 0) + 1);
+  });
+  let total = 0;
+  graph.forEachNode((_, a) => {
+    if (a.noise || a.kind === Kind.External) return;
+    // Folder sizes in files; communities in all symbols.
+    if (!useCommunity && a.kind !== Kind.File) return;
+    const gid = useCommunity ? a.community : a.folder;
+    counts.set(gid, (counts.get(gid) ?? 0) + 1);
+    total++;
+  });
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const share = (gid: number, c: number) =>
+    Math.max(c / Math.max(1, total), (weight.get(gid) ?? 0) / Math.max(1, 2 * totalWeight));
+  const heavy = (gid: number) => (weight.get(gid) ?? 0) / Math.max(1, 2 * totalWeight) >= 0.05;
+  const significant = ranked
+    .filter(([gid, c]) => (c >= 2 || heavy(gid)) && share(gid, c) >= 0.03 && groupNames[gid])
+    .slice(0, 9);
+  const count = Math.max(1, significant.length);
+  groupColors = new Map(significant.map(([gid], i) => [gid, spreadColor(i, count, theme.dark)]));
+  const neutral = neutralColor(theme.dark);
+  graph.forEachNode((_, a) => {
+    const gid = useCommunity ? a.community : a.folder;
+    a.baseColor = groupColors.get(gid) ?? neutral;
+    a.color = a.baseColor;
+  });
+
+  const groups: GroupInfo[] = significant.map(([gid, c]) => ({
+    id: gid,
+    name: groupNames[gid],
+    color: groupColors.get(gid)!,
+    count: c,
+  }));
+  const rest = ranked.filter(([gid]) => !groupColors.has(gid)).reduce((sum, [, c]) => sum + c, 0);
+  if (rest > 0) groups.push({ id: -1, name: "", color: neutral, count: rest });
+  post({ type: "groups", mode: useCommunity ? "community" : "folder", groups });
+}
+
+function groupOf(a: NodeAttrs): number {
+  return colorMode === "community" && hasCommunities ? a.community : a.folder;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,8 +640,12 @@ function createRenderer() {
     defaultEdgeColor: theme.edge,
     defaultEdgeType: "line",
     minCameraRatio: 0.02,
-    maxCameraRatio: 6,
-    stagePadding: 40,
+    maxCameraRatio: 4,
+    stagePadding: 24,
+    // Node sizes live in map units: they grow as you zoom in (like towns on
+    // a map) and the layout's spacing matches what is drawn.
+    itemSizesReference: "positions",
+    zoomToSizeRatioFunction: (ratio: number) => ratio,
     nodeProgramClasses: { bordered: BorderedProgram },
     defaultDrawNodeHover: drawHover,
     nodeReducer,
@@ -289,14 +667,23 @@ function createRenderer() {
     e.preventSigmaDefault();
     post({ type: "open", id: e.node });
   });
-  renderer.on("clickStage", () => select(null, { notify: true, fly: false }));
-  renderer.getCamera().on("updated", (state) => {
-    const crossed = (cameraRatio > LABEL_RATIO) !== (state.ratio > LABEL_RATIO);
-    cameraRatio = state.ratio;
-    if (crossed) renderer?.refresh({ skipIndexation: true });
-    updateClusterLabels(false);
+  renderer.on("clickStage", () => {
+    if (highlight) api.clearHighlight();
+    select(null, { notify: true, fly: false });
   });
-  updateClusterLabels(true);
+  renderer.on("afterRender", drawOverlay);
+  renderer.getCamera().on("updated", (state) => {
+    const before = labelTier(cameraRatio), after = labelTier(state.ratio);
+    cameraRatio = state.ratio;
+    if (before !== after) renderer?.refresh({ skipIndexation: true });
+  });
+}
+
+/** Big maps: 0 = regions only, 1 = + sub-areas, 2 = + node names. */
+function labelTier(ratio: number): number {
+  if (ratio > 0.55) return 0;
+  if (ratio > 0.28) return 1;
+  return 2;
 }
 
 function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Record<string, unknown> {
@@ -306,17 +693,18 @@ function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Recor
     return res;
   }
   const lit = highlight ? highlight.nodes.has(id) : focusSet ? focusSet.has(id) : true;
-  // Semantic zoom: far out the cluster names speak; node names appear as
-  // you get closer (forced labels for focus/selection still show).
-  if (!highlight && !focusSet && cameraRatio > LABEL_RATIO && visibleCount > SMALL_MAP) res.label = "";
+  // Semantic zoom on big maps: names appear once you are close enough.
+  if (!isSmall() && !highlight && !focusSet && labelTier(cameraRatio) < 2) res.label = "";
   if (!lit) {
-    res.color = mix(a.baseColor, theme.canvas, 0.88);
-    res.size = Math.max(1.5, a.size * 0.55);
+    res.color = mix(a.baseColor, theme.canvas, 0.86);
+    res.size = Math.max(1.5, a.size * 0.6);
     res.label = "";
     res.zIndex = 0;
   } else {
     res.zIndex = 1;
     if (highlight || (focusSet && (id === hovered || id === selected))) res.forceLabel = true;
+    // Neighbours of the focus are named too: that is the point of focusing.
+    if (focusSet && !highlight && focusSet.size <= 40) res.forceLabel = true;
   }
   if (id === selected) {
     res.type = "bordered";
@@ -335,14 +723,15 @@ function nodeReducer(id: string, a: NodeAttrs): Partial<NodeDisplayData> & Recor
 }
 
 function edgeReducer(id: string, a: EdgeAttrs): Record<string, unknown> {
-  const res: Record<string, unknown> = { ...a, size: 0.6 };
+  const res: Record<string, unknown> = { ...a, size: 0.7 };
   const [s, t] = graph.extremities(id);
   if (!isVisible(graph.getNodeAttributes(s)) || !isVisible(graph.getNodeAttributes(t))) {
     res.hidden = true;
     return res;
   }
+  const levelMatch = detail === 0 ? a.rel === Rel.FileLink : a.rel !== Rel.FileLink && a.rel !== Rel.Contains;
   if (highlight) {
-    if (highlight.edges.has(id)) {
+    if (highlight.edges.has(id) && a.rel !== Rel.Contains) {
       res.color = theme.accent;
       res.size = 2.4;
       res.zIndex = 2;
@@ -351,23 +740,27 @@ function edgeReducer(id: string, a: EdgeAttrs): Record<string, unknown> {
   }
   const focus = hovered ?? selected;
   if (focus) {
-    const levelMatch = detail === 0 ? a.rel === Rel.FileLink : a.rel !== Rel.FileLink;
     if ((s === focus || t === focus) && levelMatch) {
       res.color = theme.edgeActive;
-      res.size = 1.2;
+      res.size = 1.3;
       res.zIndex = 1;
     } else res.hidden = true;
     return res;
   }
-  // Resting state: containment edges are structure, not information.
-  if (a.rel === Rel.Contains) res.hidden = true;
-  // File level draws lifted file links; deeper levels draw the real edges.
-  if (detail === 0 ? a.rel !== Rel.FileLink : a.rel === Rel.FileLink) res.hidden = true;
+  // At rest a big map shows region ribbons (overlay) instead of thousands of
+  // individual edges; a small map shows the edges *between* countries (the
+  // inside of a country is already told by the country itself).
+  if (!isSmall() || !levelMatch) res.hidden = true;
+  else {
+    const ga = groupOf(graph.getNodeAttributes(s)), gb = groupOf(graph.getNodeAttributes(t));
+    if (ga === gb && groupColors.has(ga)) res.hidden = true;
+  }
   res.color = theme.edge;
   return res;
 }
 
 function isVisible(a: NodeAttrs): boolean {
+  if (a.noise && !showNoise) return false;
   if (hideTests && a.test) return false;
   switch (detail) {
     case 0:
@@ -385,17 +778,23 @@ function countVisible() {
     if (isVisible(a)) n++;
   });
   visibleCount = n;
-  // Small maps name every node; big ones only nodes drawn large enough.
-  renderer?.setSetting("labelRenderedSizeThreshold", n <= SMALL_MAP ? 0 : 8);
-  renderer?.setSetting("labelDensity", n <= SMALL_MAP ? 1.4 : 0.6);
+  renderer?.setSetting("labelRenderedSizeThreshold", isSmall() ? 0 : 7);
+  // Small maps: every name (overlaps were resolved by separateLabels).
+  renderer?.setSetting("labelDensity", isSmall() ? 100 : 0.7);
+  renderer?.setSetting("labelGridCellSize", isSmall() ? 10 : 120);
 }
 
 function recomputeFocus() {
   const focus = hovered ?? selected;
   if (!focus || !graph.hasNode(focus)) focusSet = null;
   else {
-    focusSet = new Set(graph.neighbors(focus));
+    focusSet = new Set<string>();
     focusSet.add(focus);
+    // Only neighbours reachable through edges drawn at this level.
+    graph.forEachEdge(focus, (_e, ea, s, t) => {
+      const levelMatch = detail === 0 ? ea.rel === Rel.FileLink : ea.rel !== Rel.FileLink && ea.rel !== Rel.Contains;
+      if (levelMatch) focusSet!.add(s === focus ? t : s);
+    });
   }
   renderer?.refresh({ skipIndexation: true });
 }
@@ -424,65 +823,159 @@ function drawHover(
 }
 
 // ---------------------------------------------------------------------------
-// Cluster labels (HTML overlay, visible when zoomed out)
+// Overlay: territories, ribbons, region and sub-area names
 
-let clusterEls: { el: HTMLDivElement; x: number; y: number; count: number; minX: number; maxX: number; minY: number; maxY: number }[] = [];
+/** Median nearest-neighbour spacing of visible nodes → territory radius. */
+function measureTerritoryRadius() {
+  const pts: [number, number][] = [];
+  graph.forEachNode((_, a) => {
+    if (isVisible(a)) pts.push([a.x, a.y]);
+  });
+  if (pts.length < 2) return;
+  const sample = pts.length > 600 ? pts.filter((_, i) => i % Math.ceil(pts.length / 600) === 0) : pts;
+  const d: number[] = [];
+  for (const p of sample) {
+    let best = Infinity;
+    for (const q of pts) {
+      if (p === q) continue;
+      const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2;
+      if (dd > 0 && dd < best) best = dd;
+    }
+    if (isFinite(best)) d.push(Math.sqrt(best));
+  }
+  d.sort((a, b) => a - b);
+  territoryRadius = (d[Math.floor(d.length / 2)] ?? 10) * 1.15;
+}
 
-function updateClusterLabels(rebuild: boolean) {
+interface LabelBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+const labelPool: HTMLDivElement[] = [];
+/** Measured label sizes; measuring every frame would force a layout per label. */
+const labelSize = new Map<string, [number, number]>();
+
+function drawOverlay() {
   if (!renderer || !payload) return;
-  const useCommunity = colorMode === "community" && hasCommunities;
-  const names = useCommunity ? payload.communities : payload.folders;
-  if (rebuild) {
-    clusterLayer.replaceChildren();
-    clusterEls = [];
-    const acc = new Map<number, { x: number; y: number; n: number; minX: number; maxX: number; minY: number; maxY: number }>();
-    graph.forEachNode((_, a) => {
-      if (!isVisible(a)) return;
-      const gid = useCommunity ? a.community : a.folder;
-      const s = acc.get(gid) ?? { x: 0, y: 0, n: 0, minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
-      s.x += a.x; s.y += a.y; s.n++;
-      s.minX = Math.min(s.minX, a.x); s.maxX = Math.max(s.maxX, a.x);
-      s.minY = Math.min(s.minY, a.y); s.maxY = Math.max(s.maxY, a.y);
-      acc.set(gid, s);
+  const toView = (x: number, y: number) => renderer!.graphToViewport({ x, y });
+  const origin = toView(0, 0), unit = toView(territoryRadius, 0);
+  // Padding around a country's outermost nodes: follows zoom, within taste.
+  const radiusPx = Math.max(12, Math.min(36, Math.hypot(unit.x - origin.x, unit.y - origin.y)));
+
+  // Collect visible nodes per coloured group, in viewport space.
+  const byGroup = new Map<number, { x: number; y: number }[]>();
+  const bySub = new Map<number, { gid: number; xs: number; ys: number; n: number; top: number }>();
+  const graphBox = new Map<number, LabelBox>();
+  graph.forEachNode((_, a) => {
+    if (!isVisible(a)) return;
+    const gid = groupOf(a);
+    if (!groupColors.has(gid)) return;
+    const p = toView(a.x, a.y);
+    let list = byGroup.get(gid);
+    if (!list) byGroup.set(gid, (list = []));
+    list.push(p);
+    const b = graphBox.get(gid) ?? { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    b.x0 = Math.min(b.x0, p.x); b.x1 = Math.max(b.x1, p.x);
+    b.y0 = Math.min(b.y0, p.y); b.y1 = Math.max(b.y1, p.y);
+    graphBox.set(gid, b);
+    if (!isSmall() && payload!.subfolders[a.sub]) {
+      const s = bySub.get(a.sub) ?? { gid, xs: 0, ys: 0, n: 0, top: Infinity };
+      s.xs += p.x; s.ys += p.y; s.n++;
+      s.top = Math.min(s.top, p.y);
+      bySub.set(a.sub, s);
+    }
+  });
+
+  const territories: Territory[] = [...byGroup.entries()]
+    .map(([gid, points]) => ({ color: groupColors.get(gid)!, points }));
+
+  // Ribbons between countries (big maps, at rest).
+  const bundles: Bundle[] = [];
+  if (!isSmall() && !focusSet && !highlight) {
+    const pair = new Map<string, number>();
+    graph.forEachEdge((_e, ea, s, t, sa, ta) => {
+      const levelMatch = detail === 0 ? ea.rel === Rel.FileLink : ea.rel !== Rel.FileLink && ea.rel !== Rel.Contains;
+      if (!levelMatch || !isVisible(sa) || !isVisible(ta)) return;
+      const ga = groupOf(sa), gb = groupOf(ta);
+      if (ga === gb || !groupColors.has(ga) || !groupColors.has(gb)) return;
+      const key = ga < gb ? `${ga}:${gb}` : `${gb}:${ga}`;
+      pair.set(key, (pair.get(key) ?? 0) + 1);
+      void s; void t;
     });
-    const minCount = Math.max(3, Math.min(12, visibleCount / 40));
-    const ranked = [...acc.entries()]
-      .filter(([gid, s]) => s.n >= minCount && names[gid])
-      .sort((a, b) => b[1].n - a[1].n)
-      .slice(0, 24);
-    for (const [gid, s] of ranked) {
-      const el = document.createElement("div");
-      el.className = "cluster";
-      el.textContent = names[gid];
-      el.style.color = groupColor(gid, useCommunity);
-      clusterLayer.appendChild(el);
-      clusterEls.push({ el, x: s.x / s.n, y: s.y / s.n, count: s.n, minX: s.minX, maxX: s.maxX, minY: s.minY, maxY: s.maxY });
+    const centre = (gid: number) => {
+      const pts = byGroup.get(gid)!;
+      let x = 0, y = 0;
+      for (const p of pts) { x += p.x; y += p.y; }
+      return { x: x / pts.length, y: y / pts.length };
+    };
+    const totals = [...pair.values()];
+    const floor = Math.max(2, totals.reduce((a, b) => a + b, 0) * 0.01);
+    for (const [key, w] of [...pair.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18)) {
+      if (w < floor) continue;
+      const [ga, gb] = key.split(":").map(Number);
+      if (!byGroup.has(ga) || !byGroup.has(gb)) continue;
+      bundles.push({ from: centre(ga), to: centre(gb), weight: w });
     }
   }
-  const ratio = renderer.getCamera().ratio;
-  const opacity = visibleCount <= SMALL_MAP ? 0.9 : Math.max(0, Math.min(1, (ratio - LABEL_RATIO * 0.8) / (LABEL_RATIO * 0.6)));
-  clusterLayer.style.opacity = String(highlight || focusSet ? opacity * 0.2 : opacity);
-  if (opacity === 0) return;
-  // Biggest clusters claim their spot first; a label that would overlap an
-  // already placed one is hidden rather than stacked.
-  const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
-  // Small maps already name every node: region names sit above their region
-  // (atlas style) instead of on top of it. Large maps centre them.
-  const above = visibleCount <= SMALL_MAP;
-  for (const c of clusterEls) {
-    let p = renderer.graphToViewport({ x: c.x, y: c.y });
-    if (above) {
-      const a = renderer.graphToViewport({ x: c.minX, y: c.minY });
-      const b = renderer.graphToViewport({ x: c.maxX, y: c.maxY });
-      p = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 26 };
+
+  drawRegions(regionCanvas, territories, bundles, {
+    dark: theme.dark,
+    radius: radiusPx,
+    bundleColor: theme.edgeActive,
+    opacity: highlight || focusSet ? 0.45 : 1,
+  });
+
+  // Names: countries above their territory, then sub-areas at their centre.
+  const labels: { text: string; x: number; y: number; color: string; cls: string }[] = [];
+  const dim = highlight || focusSet;
+  for (const [gid, b] of graphBox) {
+    labels.push({ text: groupNames[gid], x: (b.x0 + b.x1) / 2, y: b.y0 - radiusPx - 12, color: groupColors.get(gid)!, cls: "region" });
+  }
+  if (!isSmall() && labelTier(cameraRatio) === 1 && !dim) {
+    for (const [sub, s] of bySub) {
+      if (s.n < 4) continue;
+      // Above the province, like the country names: never on top of its files.
+      labels.push({ text: payload.subfolders[sub], x: s.xs / s.n, y: s.top - 14, color: groupColors.get(s.gid)!, cls: "area" });
     }
-    const w = c.el.offsetWidth || c.el.textContent!.length * 9, h = 20;
-    const box = { x0: p.x - w / 2 - 6, y0: p.y - h / 2 - 3, x1: p.x + w / 2 + 6, y1: p.y + h / 2 + 3 };
+  }
+
+  const placed: LabelBox[] = [];
+  const w = container.clientWidth, h = container.clientHeight;
+  let used = 0;
+  for (const l of labels) {
+    const el = labelPool[used] ?? (labelPool[used] = labelLayer.appendChild(document.createElement("div")));
+    if (el.textContent !== l.text || el.className !== `label ${l.cls}`) {
+      el.className = `label ${l.cls}`;
+      el.textContent = l.text;
+      // Folder names are code, not Turkish: "APP/VIEWS", never "APP/VİEWS".
+      el.lang = "en";
+    }
+    el.style.color = l.color;
+    const key = `${l.cls}|${l.text}`;
+    let size = labelSize.get(key);
+    if (!size) labelSize.set(key, (size = [el.offsetWidth, el.offsetHeight]));
+    const [bw, bh] = size;
+    // Keep inside the viewport, then avoid collisions (first come first served:
+    // countries before sub-areas).
+    // Names travel with their region; off-screen means hidden, not pinned.
+    const x = l.x, y = l.y;
+    if (x < -bw || x > w + bw || y < -bh || y > h + bh) {
+      el.style.visibility = "hidden";
+      used++;
+      continue;
+    }
+    const box = { x0: x - bw / 2 - 4, y0: y - bh / 2 - 2, x1: x + bw / 2 + 4, y1: y + bh / 2 + 2 };
     const hit = placed.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0);
-    c.el.style.visibility = hit ? "hidden" : "visible";
+    el.style.visibility = hit ? "hidden" : "visible";
+    el.style.opacity = dim ? "0.3" : "1";
+    el.style.transform = `translate(${x - bw / 2}px, ${y - bh / 2}px)`;
     if (!hit) placed.push(box);
-    c.el.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`;
+    used++;
   }
+  for (let i = used; i < labelPool.length; i++) labelPool[i].style.visibility = "hidden";
 }
 
 // ---------------------------------------------------------------------------
@@ -501,7 +994,8 @@ function fly(id: string, ratio: number) {
   if (!renderer) return;
   const attrs = graph.getNodeAttributes(id);
   if (!isVisible(attrs)) {
-    // Searching a symbol reveals it even at a coarser detail level.
+    // A searched node is revealed even at a coarser level / when hidden as noise.
+    if (attrs.noise && !showNoise) setNoise(true);
     raiseDetail(requiredDetail(attrs.kind));
   }
   const d = renderer.getNodeDisplayData(id);
@@ -509,21 +1003,15 @@ function fly(id: string, ratio: number) {
   renderer.getCamera().animate({ x: d.x, y: d.y, ratio }, { duration: duration(), easing: "cubicInOut" });
 }
 
-function showPath(nodeIds: string[], edgeKeys?: string[]) {
+function showPath(nodeIds: string[]) {
   if (!renderer) return;
   const nodes = new Set(nodeIds.filter((n) => graph.hasNode(n)));
   const edges = new Set<string>();
-  if (edgeKeys) edgeKeys.forEach((e) => graph.hasEdge(e) && edges.add(e));
-  else
-    for (let i = 0; i + 1 < nodeIds.length; i++) {
-      const a = nodeIds[i], b = nodeIds[i + 1];
-      graph.edges(a, b).concat(graph.edges(b, a)).forEach((e) => edges.add(e));
-    }
-  highlight = { nodes, edges };
-  raiseDetail(Math.max(...[...nodes].map((n) => requiredDetail(graph.getNodeAttributes(n).kind))) as Detail);
-  renderer.refresh({ skipIndexation: true });
-  fitTo([...nodes]);
-  updateClusterLabels(false);
+  for (let i = 0; i + 1 < nodeIds.length; i++) {
+    const a = nodeIds[i], b = nodeIds[i + 1];
+    graph.edges(a, b).concat(graph.edges(b, a)).forEach((e) => edges.add(e));
+  }
+  applyHighlight(nodes, edges);
 }
 
 /** Highlights a set of nodes and every edge between two of them. */
@@ -535,11 +1023,15 @@ function highlightSet(ids: string[]) {
     graph.forEachOutEdge(n, (e, _a, _s, t) => {
       if (nodes.has(t)) edges.add(e);
     });
+  applyHighlight(nodes, edges);
+}
+
+function applyHighlight(nodes: Set<string>, edges: Set<string>) {
+  if (nodes.size === 0) return;
   highlight = { nodes, edges };
   raiseDetail(Math.max(...[...nodes].map((n) => requiredDetail(graph.getNodeAttributes(n).kind))) as Detail);
-  renderer.refresh({ skipIndexation: true });
+  renderer!.refresh({ skipIndexation: true });
   fitTo([...nodes]);
-  updateClusterLabels(false);
 }
 
 function requiredDetail(kind: Kind): Detail {
@@ -552,10 +1044,55 @@ function requiredDetail(kind: Kind): Detail {
 function raiseDetail(level: Detail) {
   if (level <= detail) return;
   detail = level;
-  countVisible();
-  renderer?.refresh();
-  updateClusterLabels(true);
+  visibilityChanged();
   post({ type: "detail", value: level });
+}
+
+function setNoise(v: boolean) {
+  showNoise = v;
+  visibilityChanged();
+  post({ type: "noise", value: v });
+}
+
+function visibilityChanged() {
+  countVisible();
+  measureTerritoryRadius();
+  renderer?.refresh();
+}
+
+function bbox(ids: string[]) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const id of ids) {
+    const a = graph.getNodeAttributes(id);
+    minX = Math.min(minX, a.x); maxX = Math.max(maxX, a.x);
+    minY = Math.min(minY, a.y); maxY = Math.max(maxY, a.y);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/**
+ * Frames the *visible* nodes (hidden symbols must not skew the view) with
+ * room for labels on the right and region names on top.
+ */
+function fitVisible(animate: boolean) {
+  if (!renderer) return;
+  const ids: string[] = [];
+  graph.forEachNode((id, a) => {
+    if (isVisible(a)) ids.push(id);
+  });
+  if (ids.length === 0) return;
+  const b = bbox(ids);
+  const spanX = Math.max(b.maxX - b.minX, 1), spanY = Math.max(b.maxY - b.minY, 1);
+  // Labels extend ~140 px to the right on small maps; names sit above.
+  const vw = Math.max(container.clientWidth, 300), vh = Math.max(container.clientHeight, 300);
+  const padRight = isSmall() ? (spanX / vw) * 150 : (spanX / vw) * 30;
+  const padTop = (spanY / vh) * 50;
+  const padBottom = (spanY / vh) * 60; // hint strip / status pill
+  renderer.setCustomBBox({ x: [b.minX - spanX * 0.04, b.maxX + padRight], y: [b.minY - padBottom, b.maxY + padTop] });
+  renderer.refresh();
+  const cam = renderer.getCamera();
+  if (animate) cam.animatedReset({ duration: duration() });
+  else cam.setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
 }
 
 function fitTo(ids: string[]) {
@@ -570,22 +1107,16 @@ function fitTo(ids: string[]) {
   if (!isFinite(minX)) return;
   const span = Math.max(maxX - minX, maxY - minY);
   renderer.getCamera().animate(
-    { x: (minX + maxX) / 2, y: (minY + maxY) / 2, ratio: Math.min(1.2, Math.max(0.08, span * 1.4)) },
+    { x: (minX + maxX) / 2, y: (minY + maxY) / 2, ratio: Math.min(1.1, Math.max(0.08, span * 1.5)) },
     { duration: duration(), easing: "cubicInOut" },
   );
 }
 
 function recolor() {
-  if (!payload) return;
-  const useCommunity = colorMode === "community" && hasCommunities;
-  graph.forEachNode((_, a) => {
-    a.baseColor = groupColor(useCommunity ? a.community : a.folder, useCommunity);
-    a.color = a.baseColor;
-  });
+  assignColors();
   renderer?.setSetting("labelColor", { color: theme.label });
   renderer?.setSetting("defaultEdgeColor", theme.edge);
   renderer?.refresh();
-  updateClusterLabels(true);
 }
 
 const api = {
@@ -597,13 +1128,13 @@ const api = {
   clearHighlight: () => {
     highlight = null;
     renderer?.refresh({ skipIndexation: true });
-    updateClusterLabels(false);
   },
   setDetail: (d: Detail) => {
+    if (d === detail) return;
     detail = d;
-    countVisible();
-    renderer?.refresh();
-    updateClusterLabels(true);
+    visibilityChanged();
+    recomputeFocus();
+    fitVisible(true);
   },
   setColorMode: (m: ColorMode) => {
     colorMode = m;
@@ -611,22 +1142,31 @@ const api = {
   },
   setHideTests: (v: boolean) => {
     hideTests = v;
-    countVisible();
-    renderer?.refresh();
-    updateClusterLabels(true);
+    visibilityChanged();
+    fitVisible(true);
   },
-  fit: () => renderer?.getCamera().animatedReset({ duration: duration() }),
+  setShowNoise: (v: boolean) => {
+    showNoise = v;
+    visibilityChanged();
+    fitVisible(true);
+  },
+  /** Fly to a coloured area (legend click). */
+  focusGroup: (gid: number) => {
+    const ids: string[] = [];
+    graph.forEachNode((id, a) => {
+      if (isVisible(a) && groupOf(a) === gid) ids.push(id);
+    });
+    fitTo(ids);
+  },
+  fit: () => fitVisible(true),
   zoom: (factor: number) => {
     const cam = renderer?.getCamera();
     if (cam) cam.animate({ ratio: cam.ratio / factor }, { duration: duration() / 2 });
   },
   relayout: () => {
     if (!payload) return;
-    layout?.kill();
     payload.positions = null;
-    placeNodes(payload);
-    renderer?.refresh();
-    runLayout("full");
+    void runLayout();
   },
 };
 (window as any).atlasMap = api;
@@ -650,24 +1190,19 @@ post({ type: "ready" });
 // ---------------------------------------------------------------------------
 // Helpers
 
-function groupColor(index: number, community: boolean): string {
-  // Folder mode reuses the same hue wheel; index offset keeps the two modes
-  // visually distinct when toggled.
-  return clusterColor(community ? index : index + 5, theme.dark);
-}
-
+/** In map units (see itemSizesReference). Files dominate; symbols orbit. */
 function nodeSize(kind: Kind, degree: number): number {
   const d = Math.sqrt(Math.max(0, degree));
   switch (kind) {
     case Kind.File:
-      return 4 + Math.min(7, d * 0.9);
+      return 7 + Math.min(16, d * 1.6);
     case Kind.Type:
-      return 3.2 + Math.min(5, d * 0.7);
+      return 3.4 + Math.min(1.6, d * 0.3);
     case Kind.Function:
     case Kind.Method:
-      return 2.4 + Math.min(5, d * 0.6);
+      return 2.8 + Math.min(1.6, d * 0.3);
     default:
-      return 1.8 + Math.min(3, d * 0.4);
+      return 2.2 + Math.min(1, d * 0.2);
   }
 }
 

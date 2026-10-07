@@ -30,10 +30,13 @@ export interface Payload {
     folder: number[];
     test: (0 | 1)[];
     degree: number[];
+    sub: number[];
+    noise: (0 | 1)[];
   };
   edges: { s: number[]; t: number[]; r: Rel[] };
   communities: string[];
   folders: string[];
+  subfolders: string[];
   /** Cached layout from a previous session, keyed by node id. */
   positions: Record<string, [number, number]> | null;
   fileLinks: { s: number[]; t: number[]; w: number[] };
@@ -50,5 +53,16 @@ export type Outgoing =
   | { type: "open"; id: string }
   | { type: "layoutProgress"; value: number }
   | { type: "detail"; value: Detail }
+  | { type: "noise"; value: boolean }
+  | { type: "groups"; mode: ColorMode; groups: GroupInfo[] }
   | { type: "layout"; positions: Record<string, [number, number]> }
   | { type: "error"; message: string };
+
+/** One coloured area, reported to Swift for the legend. */
+export interface GroupInfo {
+  id: number;
+  name: string;
+  color: string;
+  /** Visible nodes in the group. */
+  count: number;
+}

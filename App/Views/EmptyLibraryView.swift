@@ -27,6 +27,7 @@ struct EmptyLibraryView: View {
             Button("Klasör Seç…") { FolderPicker.present(model: model) }
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
+                .tint(Palette.accent)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

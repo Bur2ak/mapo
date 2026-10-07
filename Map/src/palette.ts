@@ -59,7 +59,21 @@ export function mix(hexA: string, hexB: string, t: number): string {
 
 // --- colour math -----------------------------------------------------------
 
-function oklchToHex(L: number, C: number, hDeg: number): string {
+/**
+ * `count` hues spread evenly around the wheel (not a fixed 12-step), so a
+ * project with three areas gets three clearly different colours.
+ */
+export function spreadColor(rank: number, count: number, dark: boolean): string {
+  const hue = (215 + (rank * 360) / Math.max(1, count)) % 360; // start at blue
+  return oklchToHex(dark ? 0.74 : 0.58, dark ? 0.13 : 0.15, hue);
+}
+
+/** Areas too small to deserve a hue. */
+export function neutralColor(dark: boolean): string {
+  return dark ? "#5C6577" : "#A3AAB7";
+}
+
+export function oklchToHex(L: number, C: number, hDeg: number): string {
   const h = (hDeg * Math.PI) / 180;
   const a = C * Math.cos(h), b = C * Math.sin(h);
   const l_ = L + 0.3963377774 * a + 0.2158037573 * b;

@@ -13,6 +13,7 @@
     "graphology": "0.25.4",
     "graphology-layout": "0.6.1",
     "graphology-layout-forceatlas2": "0.10.1",
+    "graphology-layout-noverlap": "0.4.2",
     "sigma": "3.0.3"
   },
   "devDependencies": {

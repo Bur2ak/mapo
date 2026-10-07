@@ -13,7 +13,7 @@ struct InspectorView: View {
                 NodeInspector(graph: graph, position: position)
                     .id(id)
             } else {
-                ProjectSummary()
+                ProjectOverview()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -256,34 +256,184 @@ private struct CodePreview: View {
     }
 }
 
-private struct ProjectSummary: View {
+/// Shown when nothing is selected: what this codebase is made of, where the
+/// weight sits, and what moved recently. Doubles as the map legend.
+private struct ProjectOverview: View {
     @Environment(Workspace.self) private var workspace
+    @State private var changed: [Int] = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(workspace.project.name)
-                .font(.title3.weight(.semibold))
-            if let graph = workspace.graph {
-                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
-                    row("Dosya", graph.nodes.count { $0.kind == .file })
-                    row("Fonksiyon", graph.nodes.count { $0.kind == .function || $0.kind == .method })
-                    row("Tip", graph.nodes.count { $0.kind == .type })
-                    row("Bağlantı", graph.edges.count)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(workspace.project.name)
+                        .font(.title3.weight(.semibold))
+                    if let graph = workspace.graph {
+                        Text(summary(graph))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
-                .font(.callout)
+
+                if !workspace.map.groups.isEmpty {
+                    OverviewSection(title: workspace.map.groupsMode == .folder ? "Bölgeler" : "Modüller") {
+                        ForEach(workspace.map.groups) { group in
+                            LegendRow(group: group, unit: workspace.map.groupsMode == .folder ? "dosya" : "öğe")
+                        }
+                    }
+                }
+
+                if let graph = workspace.graph {
+                    let hubs = Self.hubs(in: graph, excluding: workspace.noisyFiles)
+                    if !hubs.isEmpty {
+                        OverviewSection(title: "Merkez dosyalar", help: "En çok bağlantısı olan dosyalar: değişince en çok yeri etkileyenler.") {
+                            ForEach(hubs, id: \.self) { p in
+                                FileRow(node: graph.nodes[p], trailing: "\(Self.degree(graph, p))")
+                            }
+                        }
+                    }
+                    if !changed.isEmpty {
+                        OverviewSection(title: "Son değişenler", help: "Son 5 commit ve kaydedilmemiş değişiklikler.") {
+                            ForEach(changed.prefix(8), id: \.self) { p in
+                                FileRow(node: graph.nodes[p], trailing: nil)
+                            }
+                        }
+                    }
+                }
+
+                Text("Haritada bir dosyaya tıkla ya da ⌘K ile ara.")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
             }
-            Text("Haritada bir noktaya tıkla ya da ⌘K ile ara.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            .padding(16)
         }
-        .padding(16)
+        .task(id: workspace.project.lastIndex?.finishedAt) {
+            guard let graph = workspace.graph else { return }
+            let files = await GitInfo.recentlyChangedFiles(at: workspace.project.rootURL, commits: 5)
+            changed = graph.nodes.indices.filter {
+                graph.nodes[$0].kind == .file && (graph.nodes[$0].sourceFile.map(files.contains) ?? false)
+            }
+        }
     }
 
-    private func row(_ title: LocalizedStringKey, _ value: Int) -> some View {
-        GridRow {
-            Text(title).foregroundStyle(.secondary)
-            Text(value.formatted()).monospacedDigit()
+    private func summary(_ graph: Graph) -> String {
+        let files = graph.nodes.count { $0.kind == .file }
+        let functions = graph.nodes.count { $0.kind == .function || $0.kind == .method }
+        return String(localized: "\(files) dosya · \(functions) fonksiyon · \(graph.edges.count) bağlantı")
+    }
+
+    static func degree(_ graph: Graph, _ p: Int) -> Int {
+        graph.incoming[p].count { !isContainment(graph.edges[$0].relation) }
+            + graph.outgoing[p].count { !isContainment(graph.edges[$0].relation) }
+    }
+
+    private static func isContainment(_ r: Relation) -> Bool { r == .contains || r == .method }
+
+    /// Most connected source files (no tests, no config / build output).
+    static func hubs(in graph: Graph, excluding noisy: Set<String>, limit: Int = 5) -> [Int] {
+        graph.nodes.indices
+            .filter { i in
+                let n = graph.nodes[i]
+                guard n.kind == .file, let f = n.sourceFile else { return false }
+                return !noisy.contains(f) && !NoiseFilter.isNoise(path: f) && !MapPayload.isTestPath(f)
+            }
+            .map { ($0, degree(graph, $0)) }
+            .sorted { $0.1 > $1.1 }
+            .prefix(limit)
+            .map(\.0)
+    }
+}
+
+private struct OverviewSection<Content: View>: View {
+    let title: LocalizedStringKey
+    var help: LocalizedStringKey? = nil
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .help(help.map { Text($0) } ?? Text(""))
+                .padding(.bottom, 2)
+            content
         }
+    }
+}
+
+private struct LegendRow: View {
+    @Environment(Workspace.self) private var workspace
+    let group: MapController.Group
+    let unit: LocalizedStringKey
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            if group.id >= 0 { workspace.map.focusGroup(group.id) }
+        } label: {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(group.color)
+                    .frame(width: 10, height: 10)
+                Text(group.id < 0 ? String(localized: "Diğer") : group.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundStyle(group.id < 0 ? .secondary : .primary)
+                Spacer(minLength: 8)
+                Text("\(group.count)")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .background(hovering && group.id >= 0 ? Color.primary.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(group.id < 0)
+        .onHover { hovering = $0 }
+        .help(group.id >= 0 ? Text("Haritada bu bölgeye git") : Text(""))
+    }
+}
+
+private struct FileRow: View {
+    @Environment(Workspace.self) private var workspace
+    let node: Node
+    let trailing: String?
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            workspace.select(node.id)
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text((node.sourceFile.map { ($0 as NSString).lastPathComponent }) ?? node.label)
+                        .lineLimit(1)
+                    if let file = node.sourceFile {
+                        Text((file as NSString).deletingLastPathComponent)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    }
+                }
+                Spacer(minLength: 8)
+                if let trailing {
+                    Text(trailing)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .help("Bağlantı sayısı")
+                }
+            }
+            .padding(.vertical, 3)
+            .padding(.horizontal, 6)
+            .background(hovering ? Color.primary.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 

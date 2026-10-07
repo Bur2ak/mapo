@@ -16,7 +16,7 @@ struct ProjectSidebar: View {
             } else {
                 Section("Projeler") {
                     ForEach(model.projects) { project in
-                        ProjectRow(project: project)
+                        ProjectRow(project: project, behind: model.behind[project.id])
                             .tag(project.id)
                             .contextMenu { contextMenu(for: project) }
                     }
@@ -57,22 +57,51 @@ struct ProjectSidebar: View {
 
 private struct ProjectRow: View {
     let project: Project
+    let behind: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(project.name)
-                .lineLimit(1)
-            Text(abbreviatedPath)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(project.name)
+                    .lineLimit(1)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 4)
+            Circle()
+                .fill(statusColor)
+                .frame(width: 7, height: 7)
+                .help(statusHelp)
         }
         .padding(.vertical, 2)
         .help(project.rootPath)
     }
 
-    private var abbreviatedPath: String {
-        (project.rootPath as NSString).abbreviatingWithTildeInPath
+    private var detail: String {
+        if let files = project.lastIndex?.fileCount {
+            return String(localized: "\(files) dosya")
+        }
+        return (project.rootPath as NSString).abbreviatingWithTildeInPath
+    }
+
+    private var statusColor: Color {
+        guard project.lastIndex != nil else { return Color.secondary.opacity(0.4) }
+        switch behind {
+        case 0: return Palette.fresh
+        case .some: return Palette.stale
+        case nil: return Color.secondary.opacity(0.6)
+        }
+    }
+
+    private var statusHelp: String {
+        guard project.lastIndex != nil else { return String(localized: "Henüz haritası yok") }
+        switch behind {
+        case 0: return String(localized: "Harita güncel")
+        case let n?: return String(localized: "Harita \(n) commit geride")
+        case nil: return String(localized: "Güncellik bilinmiyor")
+        }
     }
 }

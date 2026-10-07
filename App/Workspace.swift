@@ -27,6 +27,8 @@ final class Workspace {
     private(set) var graph: Graph?
     private(set) var search: SearchIndex?
     private(set) var freshness = Freshness()
+    /// Minified bundles found on disk (hidden from the map and lists).
+    private(set) var noisyFiles: Set<String> = []
     /// Set while a re-index runs over an existing map (map stays usable).
     private(set) var isRefreshing = false
 
@@ -73,18 +75,24 @@ final class Workspace {
     private func loadGraph() async {
         let graphURL = paths.graphFile(project.id)
         let layoutURL = layoutFile
+        let rootPath = project.rootPath
         do {
-            let (graph, search, data) = try await Task.detached(priority: .userInitiated) {
+            let (graph, search, data, minifiedFiles) = try await Task.detached(priority: .userInitiated) {
                 let (graph, _) = try GraphLoader.load(from: graphURL)
                 let positions = (try? Data(contentsOf: layoutURL)).flatMap {
                     try? JSONDecoder().decode([String: [Double]].self, from: $0)
                 }
-                let data = try MapPayload(graph: graph, positions: positions).encoded()
-                return (graph, SearchIndex(graph: graph), data)
+                let root = URL(fileURLWithPath: rootPath, isDirectory: true)
+                let minified = Set(graph.nodes.lazy.filter { $0.kind == .file }.compactMap(\.sourceFile).filter {
+                    NoiseFilter.looksMinified(root.appendingPathComponent($0))
+                })
+                let data = try MapPayload(graph: graph, positions: positions, noisyFiles: minified).encoded()
+                return (graph, SearchIndex(graph: graph), data, minified)
             }.value
             self.graph = graph
             self.search = search
             self.payloadData = data
+            self.noisyFiles = minifiedFiles
             if let id = selectedID, graph.node(id) == nil { selectedID = nil }
             state = .ready
             map.load(projectID: project.id)

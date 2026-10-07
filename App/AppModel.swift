@@ -10,6 +10,8 @@ final class AppModel {
     var selection: Project.ID? {
         didSet { UserDefaults.standard.set(selection?.uuidString, forKey: "lastProject") }
     }
+    /// Commits each project's map is behind (nil = unknown / not indexed).
+    private(set) var behind: [Project.ID: Int] = [:]
     /// Last user-facing error, shown as an alert.
     var alert: AlertMessage?
 
@@ -39,6 +41,7 @@ final class AppModel {
                 let last = UserDefaults.standard.string(forKey: "lastProject").flatMap(UUID.init(uuidString:))
                 selection = projects.first { $0.id == last }?.id ?? projects.first?.id
             }
+            await refreshStatuses()
         } catch {
             alert = AlertMessage(error: error)
         }
@@ -81,9 +84,23 @@ final class AppModel {
         do {
             try await library.update(project)
             projects = await library.projects
+            await refreshStatus(project)
         } catch {
             alert = AlertMessage(error: error)
         }
+    }
+
+    /// Recomputes the sidebar status dots (cheap: one git call per project).
+    func refreshStatuses() async {
+        await withTaskGroup(of: Void.self) { group in
+            for p in projects { group.addTask { await self.refreshStatus(p) } }
+        }
+    }
+
+    private func refreshStatus(_ project: Project) async {
+        guard let commit = project.lastIndex?.commit else { behind[project.id] = nil; return }
+        guard let head = await GitInfo.head(at: project.rootURL) else { behind[project.id] = nil; return }
+        behind[project.id] = head.commit == commit ? 0 : await GitInfo.commitsSince(commit, at: project.rootURL)
     }
 
     func remove(_ id: Project.ID) async {

@@ -13,7 +13,6 @@ struct ProjectDetailView: View {
             .environment(workspace)
             .focusedSceneValue(workspace)
             .navigationTitle(project.name)
-            .navigationSubtitle((project.rootPath as NSString).abbreviatingWithTildeInPath)
     }
 }
 
@@ -49,6 +48,13 @@ private struct WorkspaceView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if workspace.state == .ready { ZoomControls().padding(14) }
+        }
+        .overlay(alignment: .bottom) {
+            if workspace.state == .ready { MapHint().padding(.bottom, 16) }
+        }
+        .navigationSubtitle(statusLine)
         .animation(.easeOut(duration: 0.14), value: workspace.isSearchPresented)
         .background(Palette.canvas)
         .task { await workspace.open() }
@@ -68,24 +74,34 @@ private struct WorkspaceView: View {
     }
 }
 
+extension WorkspaceView {
+    /// "Güncel · 4270de4" / "3 commit geride" / "Güncelleniyor…" under the title.
+    var statusLine: String {
+        if workspace.isRefreshing { return String(localized: "Harita güncelleniyor…") }
+        guard workspace.graph != nil else { return (workspace.project.rootPath as NSString).abbreviatingWithTildeInPath }
+        let commit = workspace.project.lastIndex?.commit.map { " · " + $0.prefix(7) } ?? ""
+        switch workspace.freshness.behind {
+        case 0: return String(localized: "Güncel") + commit
+        case let n?: return String(localized: "\(n) commit geride") + commit
+        case nil: return (workspace.project.rootPath as NSString).abbreviatingWithTildeInPath
+        }
+    }
+}
+
 private struct WorkspaceToolbar: ToolbarContent {
     @Environment(Workspace.self) private var workspace
     @Binding var inspectorShown: Bool
 
     var body: some ToolbarContent {
         @Bindable var map = workspace.map
-        // Only when there is something to say; an empty item still draws a capsule.
-        if workspace.graph != nil || workspace.isRefreshing {
-            ToolbarItem(placement: .navigation) {
-                FreshnessBadge()
-            }
-        }
         ToolbarItemGroup(placement: .primaryAction) {
+            UpdateButton()
+
             Picker("Ayrıntı", selection: $map.detail) {
                 ForEach(MapController.Detail.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            .help("Haritada ne kadar ayrıntı gösterilsin (⌘1 ⌘2 ⌘3)")
+            .help("Dosyalar: yalnız dosyalar · Kod: fonksiyon ve tipler · Tümü: sabitler ve dış paketler dahil (⌘1 ⌘2 ⌘3)")
             .disabled(workspace.state != .ready)
 
             Menu {
@@ -94,6 +110,7 @@ private struct WorkspaceToolbar: ToolbarContent {
                 }
                 .pickerStyle(.inline)
                 Toggle("Testleri gizle", isOn: $map.hideTests)
+                Toggle("Yapılandırma ve derleme dosyalarını göster", isOn: $map.showNoise)
                 Divider()
                 Button("Haritayı sığdır") { workspace.map.fit() }
                 Button("Yeniden yerleştir") { workspace.map.relayout() }
@@ -120,51 +137,98 @@ private struct WorkspaceToolbar: ToolbarContent {
     }
 }
 
-/// "● Güncel · a1b2c3d" / "3 commit geride · Güncelle" / spinner while refreshing.
-private struct FreshnessBadge: View {
+/// Refresh the map. Marked when the map is behind, spins while working.
+private struct UpdateButton: View {
     @Environment(Workspace.self) private var workspace
 
     var body: some View {
-        HStack(spacing: 6) {
+        Button {
+            workspace.index()
+        } label: {
             if workspace.isRefreshing {
-                ProgressView().controlSize(.mini)
-                Text("Güncelleniyor").foregroundStyle(.secondary)
-            } else if workspace.graph != nil {
-                Circle()
-                    .fill(isFresh ? Palette.fresh : Palette.stale)
-                    .frame(width: 7, height: 7)
-                Text(statusText)
-                if let commit = workspace.project.lastIndex?.commit {
-                    Text(String(commit.prefix(7)))
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-                if !isFresh {
-                    Button("Güncelle") { workspace.index() }
-                        .buttonStyle(.link)
-                        .disabled(!workspace.canIndex)
-                }
+                ProgressView().controlSize(.small)
+            } else {
+                Label("Güncelle", systemImage: "arrow.triangle.2.circlepath")
+                    .overlay(alignment: .topTrailing) {
+                        if isStale {
+                            Circle().fill(Palette.stale).frame(width: 7, height: 7).offset(x: 3, y: -2)
+                        }
+                    }
             }
         }
-        .font(.callout)
-        .padding(.horizontal, 6)
-        .help(helpText)
+        .help(isStale ? "Harita güncel değil, güncelle (⌘R)" : "Haritayı güncelle (⌘R)")
+        .disabled(workspace.isRefreshing || !workspace.canIndex || workspace.graph == nil)
     }
 
-    private var isFresh: Bool { workspace.freshness.behind == 0 }
+    private var isStale: Bool { (workspace.freshness.behind ?? 0) > 0 }
+}
 
-    private var statusText: LocalizedStringKey {
-        switch workspace.freshness.behind {
-        case 0: "Güncel"
-        case let n?: "\(n) commit geride"
-        case nil: "Durum bilinmiyor"
+/// + / − / fit, bottom right of the map.
+private struct ZoomControls: View {
+    @Environment(Workspace.self) private var workspace
+
+    var body: some View {
+        VStack(spacing: 0) {
+            control("plus", "Yakınlaştır (⌘+)") { workspace.map.zoom(1.5) }
+            Divider().frame(width: 18)
+            control("minus", "Uzaklaştır (⌘−)") { workspace.map.zoom(1 / 1.5) }
+            Divider().frame(width: 18)
+            control("arrow.down.right.and.arrow.up.left", "Sığdır (⌘0)") { workspace.map.fit() }
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.primary.opacity(0.1)))
+    }
+
+    private func control(_ symbol: String, _ help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 30, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(help)
+    }
+}
+
+/// One-time hint about map gestures; dismissed on click or after a while.
+private struct MapHint: View {
+    @AppStorage("mapHintDismissed") private var dismissed = false
+    @State private var visible = true
+
+    var body: some View {
+        if !dismissed && visible {
+            HStack(spacing: 14) {
+                hint("hand.draw", "Sürükle: kaydır")
+                hint("plus.magnifyingglass", "Kaydır: yakınlaştır")
+                hint("cursorarrow.click", "Tıkla: incele")
+                hint("cursorarrow.click.2", "Çift tıkla: editörde aç")
+                Button {
+                    dismissed = true
+                } label: {
+                    Image(systemName: "xmark").font(.caption2.weight(.bold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tertiary)
+                .help("Bir daha gösterme")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1)))
+            .transition(.opacity)
+            .task {
+                try? await Task.sleep(for: .seconds(14))
+                withAnimation { visible = false }
+            }
         }
     }
 
-    private var helpText: String {
-        guard let last = workspace.project.lastIndex else { return "" }
-        let when = last.finishedAt.formatted(.relative(presentation: .named))
-        return String(localized: "Son güncelleme \(when)")
+    private func hint(_ symbol: String, _ text: LocalizedStringKey) -> some View {
+        Label(text, systemImage: symbol).labelStyle(.titleAndIcon)
     }
 }
 
@@ -187,6 +251,7 @@ private struct NeedsIndexView: View {
                 Button("Haritayı Çıkar") { workspace.index() }
                     .controlSize(.large)
                     .keyboardShortcut(.defaultAction)
+                    .tint(Palette.accent)
             } else {
                 EngineMissingNote()
             }

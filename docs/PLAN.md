@@ -139,3 +139,8 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A6 | Yerleşim: ForceAtlas2 linLog; aynı klasör ×3, aynı küme ×2 çekim, klasöre göre tohumlama. Konumlar `layout.json`'a yazılır, ikinci açılış anında. | 7 Ekim 2026 |
 | A7 | Kenarlar opak, zemine önceden karıştırılmış renkler: saydam WKWebView üstünde WebGL alfa toplanarak soluk çizgileri parlak beyaza çeviriyordu. | 7 Ekim 2026 |
 | A8 | Derlenmiş harita (`App/Resources/Map/`) repoda tutulur; uygulamayı derlemek Node istemez. Harita kodu değişince `cd Map && npm run build`. | 7 Ekim 2026 |
+| A9 | **Atlas yerleşimi (iki/üç katman):** her klasör ayrı bir ülke, içinde alt klasörler il, fonksiyonlar dosyalarının etrafında yörüngede. Ülkeler/iller aralarındaki trafiğe göre dizilir ve `noverlap` ile asla üst üste binmez. Tek bir küresel kuvvet yerleşimi klasörleri birbirine karıştırıyordu (Kontak'ta mobil/api iç içeydi). | 7 Ekim 2026 |
+| A10 | Bölgeler yumuşak köşeli dışbükey zarf (alan + ince kenar) olarak 2D tuvalde, WebGL haritanın altında çizilir. Büyük haritada dururken tek tek kenarlar yerine ülkeler arası şeritler; küçük haritada yalnız ülkeler arası kenarlar. | 7 Ekim 2026 |
+| A11 | Düğüm boyutları harita biriminde (`itemSizesReference: positions`): yakınlaştıkça büyür, yerleşimin aralığı çizilenle birebir. Ekran pikseliyle yerleşim "çakışmıyor" sanıp ekranda üst üste biniyordu. | 7 Ekim 2026 |
+| A12 | Renk: dosya payı ≥%3 **veya** bağlantı payı ≥%5 olan (en çok 9) bölge eşit aralıklı ton alır, kalanı nötr "Diğer". `packages/shared` tek dosya ama mimarinin kalbi; dosya sayısına bakmak onu griye atıyordu. | 7 Ekim 2026 |
+| A13 | Kenar çubuğu seçimi sistem vurgu rengini kullanır (Mac yerlisi); marka sarısı yalnız Atlas'ın kendi çizdiği öğelerde (seçim halkası, birincil düğmeler). | 7 Ekim 2026 |

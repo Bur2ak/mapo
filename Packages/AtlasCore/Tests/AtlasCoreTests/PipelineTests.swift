@@ -77,6 +77,66 @@ struct MapPayloadTests {
         #expect(links.s.indices.allSatisfy { links.s[$0] != links.t[$0] })
     }
 
+    @Test func folderGroupingKeepsSmallSplitsWhole() {
+        // App/Views is big, App/Map and App/Design are crumbs → "App" stays one area.
+        var files = (0..<5).map { "App/f\($0).swift" } + (0..<7).map { "App/Views/v\($0).swift" }
+        files += ["App/Map/m.swift", "App/Design/d.swift"] + (0..<13).map { "Packages/Core/p\($0).swift" }
+        let g = FolderGrouping(files: files)
+        #expect(g.group(of: "App/Views/v1.swift") == "App")
+        #expect(g.group(of: "App/Map/m.swift") == "App")
+        #expect(g.group(of: "Packages/Core/p1.swift") == "Packages")
+    }
+
+    @Test func groupingCountsFilesNotSymbols() {
+        // 1 file with 200 symbols must weigh like 1 file.
+        var nodes = [Node(id: "a", label: "a.swift", kind: .file, sourceFile: "App/a.swift", line: 1, community: 0)]
+        nodes += (0..<200).map { Node(id: "v\($0)", label: "f\($0)()", kind: .function, sourceFile: "App/Views/big.swift", line: $0, community: 0) }
+        nodes += (0..<200).map { Node(id: "m\($0)", label: "g\($0)()", kind: .function, sourceFile: "App/Map/big.swift", line: $0, community: 0) }
+        nodes += (0..<20).map { Node(id: "p\($0)", label: "p\($0).swift", kind: .file, sourceFile: "Packages/Core/p\($0).swift", line: 1, community: 0) }
+        let p = MapPayload(graph: Graph(nodes: nodes, edges: []))
+        #expect(p.folders.contains("App"))
+        #expect(!p.folders.contains("App/Views"))
+    }
+
+    @Test func subgroupsSkipRouteGroupsAndHelpers() {
+        let g = FolderGrouping(files: ["apps/mobile/a.ts", "apps/mobile/b/c.ts", "apps/api/src/x/y.ts", "apps/api/z.ts"])
+        #expect(g.subgroup(of: "apps/mobile/app/(sekmeler)/kesfet/index.tsx", in: "apps/mobile") == "kesfet")
+        #expect(g.subgroup(of: "apps/mobile/lib/store/slice.ts", in: "apps/mobile") == "store")
+        #expect(g.subgroup(of: "apps/api/src/routes/kulup.ts", in: "apps/api") == "routes")
+        #expect(g.subgroup(of: "apps/mobile/a.ts", in: "apps/mobile") == "")
+        #expect(g.subgroup(of: "README.md", in: "/") == "")
+    }
+
+    @Test func noiseFilter() {
+        #expect(NoiseFilter.isNoise(path: "Map/package.json"))
+        #expect(NoiseFilter.isNoise(path: "web/dist/app.js"))
+        #expect(NoiseFilter.isNoise(path: "a/b/vendor.min.js"))
+        #expect(NoiseFilter.isNoise(path: "types/global.d.ts"))
+        #expect(!NoiseFilter.isNoise(path: "apps/mobile/lib/api.ts"))
+        #expect(!NoiseFilter.isNoise(path: "src/builder.ts"))
+    }
+
+    @Test func minifiedDetection() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-min-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let bundle = dir.appendingPathComponent("map.js")
+        try Data(String(repeating: "var a=1;", count: 2_000).utf8).write(to: bundle)
+        let source = dir.appendingPathComponent("main.js")
+        try Data(String(repeating: "const a = 1;\n", count: 2_000).utf8).write(to: source)
+        #expect(NoiseFilter.looksMinified(bundle))
+        #expect(!NoiseFilter.looksMinified(source))
+        #expect(!NoiseFilter.looksMinified(dir.appendingPathComponent("yok.js")))
+    }
+
+    @Test func noiseAndSubColumns() throws {
+        let g = try graph()
+        let p = MapPayload(graph: g, noisyFiles: ["apps/mobile/lib/api.ts"])
+        #expect(p.nodes.noise.count == g.nodes.count && p.nodes.sub.count == g.nodes.count)
+        #expect(p.nodes.noise[try #require(g.position(of: "f_api"))] == 1)
+        #expect(p.nodes.noise[try #require(g.position(of: "f_kulup"))] == 0)
+        #expect(p.nodes.sub.allSatisfy { $0 >= 0 && $0 < p.subfolders.count })
+    }
+
     @Test func testPathDetection() {
         #expect(MapPayload.isTestPath("apps/mobile/__tests__/a.test.tsx"))
         #expect(MapPayload.isTestPath("src/foo.spec.ts"))

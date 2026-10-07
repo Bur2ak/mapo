@@ -36,7 +36,7 @@ struct MapCommands: Commands {
             Button("Sığdır") { workspace?.map.fit() }
                 .keyboardShortcut("0")
             Button("Yakınlaştır") { workspace?.map.zoom(1.5) }
-                .keyboardShortcut("+")
+                .keyboardShortcut("=")
             Button("Uzaklaştır") { workspace?.map.zoom(1 / 1.5) }
                 .keyboardShortcut("-")
             Button("Vurguyu Temizle") {

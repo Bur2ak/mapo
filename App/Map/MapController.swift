@@ -25,8 +25,8 @@ final class MapController: NSObject {
         var title: LocalizedStringKey {
             switch self {
             case .files: "Dosyalar"
-            case .symbols: "Semboller"
-            case .everything: "Hepsi"
+            case .symbols: "Kod"
+            case .everything: "Tümü"
             }
         }
     }
@@ -42,7 +42,18 @@ final class MapController: NSObject {
         }
     }
 
+    /// One coloured area of the map, for the legend.
+    struct Group: Identifiable, Equatable {
+        /// -1 = everything too small to get its own colour.
+        let id: Int
+        let name: String
+        let color: Color
+        let count: Int
+    }
+
     private(set) var isReady = false
+    private(set) var groups: [Group] = []
+    private(set) var groupsMode: ColorMode = .folder
     /// 0…1 while the force layout runs, nil otherwise.
     private(set) var layoutProgress: Double?
 
@@ -52,6 +63,10 @@ final class MapController: NSObject {
     @ObservationIgnored private var syncingFromMap = false
     var colorMode: ColorMode = .folder { didSet { call("atlasMap.setColorMode(v)", ["v": colorMode.rawValue]) } }
     var hideTests = false { didSet { call("atlasMap.setHideTests(v)", ["v": hideTests]) } }
+    /// Build output, bundles and tool config (hidden by default).
+    var showNoise = false {
+        didSet { if !syncingFromMap { call("atlasMap.setShowNoise(v)", ["v": showNoise]) } }
+    }
 
     @ObservationIgnored var onEvent: ((Event) -> Void)?
     @ObservationIgnored private(set) var webView: WKWebView!
@@ -97,6 +112,7 @@ final class MapController: NSObject {
     func highlight(_ nodeIDs: [String]) { call("atlasMap.highlightSet(ids)", ["ids": nodeIDs]) }
     func clearHighlight() { call("atlasMap.clearHighlight()", [:]) }
     func fit() { call("atlasMap.fit()", [:]) }
+    func focusGroup(_ id: Int) { call("atlasMap.focusGroup(g)", ["g": id]) }
     func zoom(_ factor: Double) { call("atlasMap.zoom(f)", ["f": factor]) }
     func relayout() { call("atlasMap.relayout()", [:]) }
 
@@ -136,6 +152,7 @@ final class MapController: NSObject {
             call("atlasMap.setDetail(v)", ["v": detail.rawValue])
             call("atlasMap.setColorMode(v)", ["v": colorMode.rawValue])
             call("atlasMap.setHideTests(v)", ["v": hideTests])
+            call("atlasMap.setShowNoise(v)", ["v": showNoise])
             pending.forEach { call($0.0, $0.1) }
         case "loaded":
             onEvent?(.loaded(nodes: msg["nodes"] as? Int ?? 0, edges: msg["edges"] as? Int ?? 0))
@@ -163,6 +180,18 @@ final class MapController: NSObject {
                 syncingFromMap = true
                 detail = d
                 syncingFromMap = false
+            }
+        case "noise":
+            if let v = msg["value"] as? Bool {
+                syncingFromMap = true
+                showNoise = v
+                syncingFromMap = false
+            }
+        case "groups":
+            groupsMode = (msg["mode"] as? String).flatMap(ColorMode.init(rawValue:)) ?? .folder
+            groups = (msg["groups"] as? [[String: Any]] ?? []).compactMap { g in
+                guard let id = g["id"] as? Int, let hex = g["color"] as? String else { return nil }
+                return Group(id: id, name: g["name"] as? String ?? "", color: Color(hex: hex), count: g["count"] as? Int ?? 0)
             }
         case "error":
             onEvent?(.error(msg["message"] as? String ?? "?"))
@@ -269,4 +298,12 @@ struct MapView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView { controller.webView }
     func updateNSView(_ nsView: WKWebView, context: Context) {}
+}
+
+extension Color {
+    /// "#RRGGBB" from the map's palette.
+    init(hex: String) {
+        let v = UInt32(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0x888888
+        self.init(nsColor: NSColor(hex: v))
+    }
 }
