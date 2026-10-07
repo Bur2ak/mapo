@@ -86,10 +86,27 @@ private struct GitHubAccountRow: View {
     }
 }
 
+private struct UpdatesRow: View {
+    @State private var automatic = Updater.shared.automaticallyChecks
+
+    var body: some View {
+        if Updater.shared.isAvailable {
+            Toggle("Güncellemeleri kendiliğinden denetle", isOn: $automatic)
+                .onChange(of: automatic) { _, v in Updater.shared.automaticallyChecks = v }
+            LabeledContent("") {
+                Button("Şimdi Denetle") { Updater.shared.checkForUpdates() }
+            }
+        } else {
+            LabeledContent("Güncellemeler", value: String(localized: "Geliştirme sürümünde kapalı"))
+        }
+    }
+}
+
 private struct AboutSettings: View {
     var body: some View {
         Form {
             LabeledContent("Sürüm", value: Bundle.main.shortVersion)
+            UpdatesRow()
             LabeledContent("Gizlilik") {
                 Text("Kodun bu Mac'ten çıkmaz. Atlas analiz verisi göndermez, telemetri toplamaz.")
                     .multilineTextAlignment(.trailing)

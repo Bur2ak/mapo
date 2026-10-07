@@ -32,6 +32,7 @@ struct AtlasApp: App {
                 Button("GitHub'dan Ekle…") { NotificationCenter.default.post(name: .showGitHubSheet, object: nil) }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
             }
+            UpdaterCommands()
             MapCommands()
             InspectorCommands()
         }

@@ -14,3 +14,4 @@ Map/node_modules/
 Engine/dist/
 
 .DS_Store
+dist/
