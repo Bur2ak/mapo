@@ -61,5 +61,7 @@ Değerler `Map/src/palette.ts` ve `App/Design/Palette.swift`'te tek kaynaktan ü
 - Hata: ne oldu + ne yapmalı. "Motor başlatılamadı. Ayarlar → Tanılama'dan günlüğü kaydedip paylaş."
 
 ## Uygulama ikonu
-Yuvarlatılmış kare (macOS 26 şablonu); koyu mürekkep zemin üstünde üç küme halinde bağlı düğümler, birinin etrafında pusula sarısı seçim halkası.
-Kaynak: `App/Resources/Assets.xcassets/AppIcon`, üretici betik `scripts/make-icon.swift`.
+Yuvarlatılmış kare (macOS şablonu: 824/1024 kare, köşe yarıçapı %22,37); koyu mürekkep zemin üstünde üç küme halinde bağlı düğümler (camgöbeği, mor, mercan), en büyüğünün etrafında pusula sarısı seçim halkası.
+- Çizim: `App/Resources/Brand/icon-source-gemini.jpg` (7 Ekim 2026, Gemini; prompt Burak'la birlikte, ChatGPT sürümüyle karşılaştırıldı — küçük boyutta daha okunur olduğu için seçildi).
+- Üretim: `python3 scripts/make-icon-from-art.py App/Resources/Brand/icon-source-gemini.jpg` → 16–1024 tüm boyutlar.
+- `scripts/make-icon.swift` ilk (programatik) ikondu; yedek olarak duruyor.
