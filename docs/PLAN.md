@@ -1,0 +1,137 @@
+# Atlas — Ürün ve Yol Planı
+
+> Herhangi bir kod projesini canlı, gezilebilir bir haritaya çeviren macOS uygulaması.
+> İnsanlar haritaya bakar, Claude'lar haritayı sorgular, harita kendiliğinden güncel kalır.
+
+Bu doküman Atlas'ın tek doğruluk kaynağıdır. Kurallar:
+- Karar satırları (A-satırları) en alta eklenir, **hiçbir içerik silinmez**; geri alınan karar "geri alındı → A##" diye işaretlenir.
+- Her faz bitince "Durum" tablosu güncellenir.
+
+---
+
+## 1. Neden
+
+Büyüyen bir projede asıl zaman kaybı "bu nerede, neye bağlı, neyi bozar" sorusudur.
+[Graphify](https://github.com/Graphify-Labs/graphify) kodu yerel olarak (tree-sitter AST, yapay zekâ çağrısı yok) bir bilgi grafına çeviriyor; ama
+- komut satırı aracı, kurulumu Python/uv istiyor;
+- kendi HTML çıktısı 5000 düğümden sonra zorlanıyor, arama/editöre atlama yok;
+- güncel tutmak elle ya da repoya git hook kurarak;
+- isimsiz route handler'ları (Hono/Express) ve istemci → sunucu HTTP geçişini görmüyor
+  (Kontak'ta 7 Ekim 2026 ölçümü: `POST /api/kulup/:id/uye/:kisi/sohbet` grafta yoktu).
+
+Atlas bu motoru içine gömer, üstüne profesyonel bir Mac arayüzü, canlılık, GitHub ve Claude bağlantısı ekler,
+ve graphify'ın göremediği katmanı (route ↔ fetch köprüsü, SQL) kendi çıkarıcısıyla kapatır.
+
+## 2. İlkeler
+
+1. **Kod bilgisayardan çıkmaz.** Motor her zaman `--code-only`. Uygulama telemetri, analiz, çökme raporu göndermez.
+   Ağa çıkan yalnız: kullanıcının açıkça bağladığı GitHub ve Sparkle güncelleme denetimi.
+2. **Sıfır kurulum.** Python + graphify uygulamanın içinde gelir. Arkadaş DMG'yi açar, sürükler, kullanır.
+3. **Hiçbir projeye dosya yazmaz.** Graflar `~/Library/Application Support/Atlas/` altında. Repoya hook kurulmaz.
+4. **Mac yerlisi.** SwiftUI, sistem fontları, karanlık/aydınlık, klavye ile her şey, erişilebilirlik etiketleri.
+5. **Kaynak her zaman kod.** Harita bir harita; Claude entegrasyonu araç olarak sunulur, "önce grafa sor" dayatması yapılmaz.
+6. **Bayat veriyi saklamaz.** Haritanın hangi commit'e ait olduğu ve kaç commit geride kaldığı her zaman görünür.
+
+## 3. Özellikler
+
+### 3.1 Proje kütüphanesi
+- Klasör sürükle-bırak veya "Klasör ekle…" (⌘O); GitHub'dan repo seçme (§3.4).
+- Kart: ad, kök yolu, dil dağılımı çubuğu, dosya/düğüm/bağlantı sayısı, son indeksleme, güncellik rozeti.
+- Sağ tık: Finder'da göster, editörde aç, yeniden indeksle, kaldır (graf silinir, proje dosyalarına dokunulmaz).
+
+### 3.2 Harita
+- WebGL çizim (gömülü, çevrimdışı); 10k düğümde akıcı.
+- Kümeler (graphify community) renkli bölgeler; kümeye hub düğümünden ad.
+- Anlamsal yakınlaştırma: uzakta küme etiketleri, yakında dosyalar, en yakında semboller.
+- ⌘K bulanık arama (sembol, dosya, küme) → kamera uçar, komşular vurgulanır, gerisi söner.
+- Denetçi paneli: tür, dosya:satır, çağırdıkları / çağıranlar / içe aktaranlar, kod önizlemesi (satır çevresi, sözdizimi renkli).
+- Editöre atla: VS Code, Cursor, Zed, Xcode, Sublime — kurulu olan algılanır, tercih ayarlardan.
+- Yol bulucu: iki düğüm arası en kısa yol, adım adım şerit.
+- Etki analizi: bir dosya/sembol değişirse ters bağımlılık halkaları (1., 2., 3. derece).
+- Son değişenler: son N commit'te dokunulan düğümler parlar; zaman kaydırıcısı.
+- Filtreler: ilişki türü (calls / imports / contains…), klasör, test dosyalarını gizle, yalnız EXTRACTED.
+- Dışa aktar: PNG (Retina), seçili alt grafı Mermaid / JSON.
+
+### 3.3 Canlılık
+- FSEvents ile proje klasörü izlenir; değişiklik 2 sn sakinleşince yalnız değişen dosyalar yeniden çıkarılır (`graphify update`).
+- `.git/HEAD` ve ref değişimi izlenir: dal değişimi / commit / pull algılanır.
+- Kuyruk: aynı anda tek indeksleme, düşük öncelik (QoS utility), pil modunda erteleme.
+- Menü çubuğu ikonu: güncel / indeksleniyor (ilerleme) / hata. Uygulama penceresi kapalıyken de çalışır (ayarlanabilir).
+- Oturum açılışında başlat (SMAppService), ayarlardan.
+
+### 3.4 GitHub
+- OAuth Device Flow (şifre uygulamaya girilmez); belirteç Anahtar Zinciri'nde.
+- Repo listesi (kişisel + organizasyonlar), arama, özel repolar.
+- Klonla → `~/Library/Application Support/Atlas/Repos/` (veya kullanıcının seçtiği yer) → otomatik indeksle.
+- Arka planda periyodik `git fetch` + fast-forward pull (yerel değişiklik varsa dokunmaz, uyarır).
+
+### 3.5 Claude ve diğer ajanlar
+- Uygulamaya gömülü MCP sunucusu (stdio yardımcı ikili `atlas-mcp`).
+- Araçlar: `atlas_projects`, `atlas_search`, `atlas_node`, `atlas_callers`, `atlas_callees`, `atlas_path`, `atlas_impact`, `atlas_changed`.
+  Her yanıt grafın commit'ini ve güncelliğini taşır.
+- Ayarlar → Entegrasyonlar: Claude Code, Claude Desktop, Cursor için tek tık bağla / kaldır (yapılandırma dosyalarına yedekli yazım).
+
+### 3.6 Atlas çıkarıcıları (graphify'ın üstüne)
+- **HTTP köprüsü:** sunucu route tanımları (Hono, Express, Fastify, Next route handlers, Cloudflare Workers) → `route:METHOD /path` düğümü;
+  istemci çağrıları (`fetch`, axios, ky, kendi `api()` sarmalayıcıları; şablon dizgileri normalize) → `requests` kenarı.
+- **SQL:** migration dosyalarından tablo/sütun düğümleri, kod içindeki SQL dizgilerinden `reads/writes` kenarı.
+- Çıktı graphify graf'ına `ATLAS` kökenli kenar olarak birleşir; kendi güven etiketi var.
+
+### 3.7 Dağıtım ve güncelleme
+- Developer ID imzası + Hardened Runtime + notarization; gömülü Python'daki tüm `.so/.dylib` imzalı.
+- Sparkle 2 (EdDSA imzalı appcast, GitHub Releases'ta).
+- GitHub Actions: `v*` etiketi → derle → imzala → notarize → staple → DMG → appcast → Release.
+- Sırlar yalnız GitHub Secrets / Anahtar Zinciri'nde; betikler sır yazdırmaz.
+
+### 3.8 Diğer
+- Türkçe + İngilizce (String Catalog).
+- Yerel günlük (`~/Library/Logs/Atlas`), "Tanılama paketini kaydet" (kullanıcı kendisi paylaşır).
+- Hızlı Başlangıç: ilk açılışta 3 adımlık tanıtım + örnek proje (Atlas'ın kendi kodu).
+
+## 4. Mimari
+
+```
+Atlas.app
+├── App (SwiftUI)                   pencere, kütüphane, harita kabuğu, denetçi, ayarlar, menü çubuğu
+├── AtlasCore (Swift paketi)        Graph modeli, yükleyici, arama dizini, sorgular (yol, etki),
+│                                   ProjectStore, IndexQueue, FileWatcher, GitInfo, EngineRunner
+├── Resources/Map (web)             WebGL harita (sigma.js + graphology), TypeScript, esbuild ile tek dosya
+├── Resources/Engine                gömülü Python 3.12 (python-build-standalone) + graphifyy (sabit sürüm) + atlas_extractors
+└── atlas-mcp (komut satırı)        AtlasCore'u kullanan MCP stdio sunucusu
+```
+
+- Swift ↔ harita köprüsü: `WKScriptMessageHandler` (JS → Swift: seçim, çift tık) ve `evaluateJavaScript` (Swift → JS: odakla, vurgula, filtre).
+  Graf JSON'u diskte; web görünümü `atlas://` şemasıyla okur (büyük veri köprüden geçmez).
+- Veri: `Application Support/Atlas/Projects/<uuid>/{project.json, graphify-out/…}`.
+- Motor sürümü sabit; motor güncellemesi = uygulama güncellemesi (Sparkle). Grafın motor sürümü kaydedilir, uyumsuzsa yeniden indekslenir.
+- Minimum macOS 14 (Sonoma).
+
+## 5. Tasarım
+Ayrıntı: [TASARIM.md](TASARIM.md).
+
+## 6. Fazlar
+
+| Faz | Kapsam | Bitti sayılır |
+|---|---|---|
+| 0 | Repo, plan, tasarım sistemi, Xcode iskeleti, AtlasCore graf modeli + testler | `xcodebuild` ve `swift test` yeşil, boş pencere açılıyor |
+| 1 | Klasör ekleme, motor köprüsü (önce sistemdeki graphify, sonra gömülü), harita, ⌘K, denetçi, editöre atla | Kontak haritası açılıyor, arama → odak → editör çalışıyor |
+| 2 | Canlılık (FSEvents, git), son değişenler, menü çubuğu, oturum açılışı | Kod değişince harita kendiliğinden güncelleniyor |
+| 3 | GitHub Device Flow, repo listesi, klonla, arka plan pull | Özel repo bağlanıp haritası açılıyor |
+| 4 | MCP sunucusu + tek tık entegrasyon, HTTP köprüsü, SQL çıkarıcı, yol bulucu, etki analizi | Claude Code'dan `atlas_callers` dönüyor; Kontak'ta route ↔ fetch bağlı |
+| 5 | Gömülü Python, imza, notarization, Sparkle, Actions, DMG, ilk sürüm | Arkadaş DMG'yi açıp uyarısız kuruyor, güncelleme geliyor |
+
+## 7. Durum
+
+| Faz | Durum | Not |
+|---|---|---|
+| 0 | bitti (7 Ekim) | AtlasCore 32 test (gerçek Kontak grafı 0,15 sn), iskelet derleniyor, ikon. |
+| 1 | sürüyor | |
+
+## 8. Karar kaydı
+
+| # | Karar | Tarih |
+|---|---|---|
+| A1 | Ad **Atlas**. Repo `Bur2ak/atlas`, şimdilik özel; açık kaynak olabilir → kod tanımlayıcıları İngilizce, arayüz TR + EN, belgeler Türkçe. | 7 Ekim 2026 |
+| A2 | Motor graphify (Apache-2.0 / MIT), sürümü sabit (ilk: 0.9.79), her zaman `--code-only`. Lisans metni uygulama içinde "Teşekkürler" bölümünde. | 7 Ekim 2026 |
+| A3 | Arayüz SwiftUI (macOS 14+); harita gömülü WebGL (sigma.js). Saf Metal çizici şimdilik yok — maliyet/fayda; ihtiyaç olursa ayrı faz. | 7 Ekim 2026 |
+| A4 | Graflar Application Support altında, projeye dosya/hook yazılmaz. Kontak'a 7 Ekim'de önerilen `graphify hook` Atlas canlılığı gelince kaldırılacak. | 7 Ekim 2026 |

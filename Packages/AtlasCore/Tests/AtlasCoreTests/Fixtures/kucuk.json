@@ -1,0 +1,35 @@
+{
+  "directed": true, "multigraph": false,
+  "graph": {"schema_version": 1, "graphify_version": "0.9.79"},
+  "built_at_commit": "abc1234",
+  "nodes": [
+    {"id": "f_kulup", "label": "kulupSohbet.ts", "file_type": "code", "source_file": "apps/mobile/lib/kulupSohbet.ts", "source_location": "L1", "community": 1},
+    {"id": "fn_ac", "label": "kulupSohbetiAc()", "_callable": true, "file_type": "code", "source_file": "apps/mobile/lib/kulupSohbet.ts", "source_location": "L20", "community": 1},
+    {"id": "f_api", "label": "api.ts", "file_type": "code", "source_file": "apps/mobile/lib/api.ts", "source_location": "L1", "community": 2},
+    {"id": "fn_ozel", "label": "kulupOzelSohbetAc()", "_callable": true, "file_type": "code", "source_file": "apps/mobile/lib/api.ts", "source_location": "L449-L470", "community": 2},
+    {"id": "fn_istek", "label": "istek()", "_callable": true, "file_type": "code", "source_file": "apps/mobile/lib/api.ts", "source_location": "L10", "community": 2},
+    {"id": "f_sayfa", "label": "[id].tsx", "file_type": "code", "source_file": "apps/mobile/app/kulupler/[id].tsx", "source_location": "L1", "community": 3},
+    {"id": "c_sayfa", "label": "KulupSayfasi", "_callable": true, "_callable_class": true, "file_type": "code", "source_file": "apps/mobile/app/kulupler/[id].tsx", "source_location": "L40", "community": 3},
+    {"id": "m_oda", "label": ".ozetiPlanla()", "_callable": true, "file_type": "code", "source_file": "apps/api/src/chat/SohbetOdasi.ts", "source_location": "L88", "community": 4},
+    {"id": "s_sinir", "label": "KULUP_OZEL_SOHBET_GUNLUK", "file_type": "code", "source_file": "apps/api/src/routes/kulup.ts", "source_location": "L30", "community": 4},
+    {"id": "ext_react", "label": "react", "type": "external", "external": true, "file_type": "concept", "source_file": "", "community": 0},
+    {"id": 42, "label": "Değişken", "file_type": "code", "source_file": "apps/x.ts", "source_location": "L5"},
+    {"id": "fn_ac", "label": "kopya", "file_type": "code", "source_file": "x", "source_location": "L1"}
+  ],
+  "links": [
+    {"source": "f_kulup", "target": "fn_ac", "relation": "contains", "confidence": "EXTRACTED", "source_file": "apps/mobile/lib/kulupSohbet.ts"},
+    {"source": "f_api", "target": "fn_ozel", "relation": "contains", "confidence": "EXTRACTED"},
+    {"source": "f_api", "target": "fn_istek", "relation": "contains", "confidence": "EXTRACTED"},
+    {"source": "f_sayfa", "target": "c_sayfa", "relation": "contains", "confidence": "EXTRACTED"},
+    {"source": "fn_ac", "target": "fn_ozel", "relation": "calls", "confidence": "EXTRACTED", "source_location": "L26"},
+    {"source": "fn_ozel", "target": "fn_istek", "relation": "calls", "confidence": "EXTRACTED"},
+    {"source": "c_sayfa", "target": "fn_ac", "relation": "calls", "confidence": "EXTRACTED", "source_location": "L227"},
+    {"source": "f_kulup", "target": "f_api", "relation": "imports_from", "confidence": "EXTRACTED"},
+    {"source": "f_sayfa", "target": "f_kulup", "relation": "imports_from", "confidence": "EXTRACTED"},
+    {"source": "f_sayfa", "target": "ext_react", "relation": "imports", "confidence": "EXTRACTED"},
+    {"source": "fn_istek", "target": "m_oda", "relation": "yeni_iliski", "confidence": "INFERRED"},
+    {"source": "fn_ac", "target": "yok_boyle_dugum", "relation": "calls", "confidence": "EXTRACTED"},
+    {"source": 42, "target": "fn_ac", "relation": "references", "confidence": "EXTRACTED"}
+  ],
+  "hyperedges": []
+}

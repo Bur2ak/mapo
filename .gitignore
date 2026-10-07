@@ -1,0 +1,16 @@
+# Xcode projesi project.yml'den üretilir
+*.xcodeproj/
+build/
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+
+# Harita (web) derleme
+Map/node_modules/
+
+# Gömülü motor (betikle indirilir, Faz 5)
+Engine/dist/
+
+.DS_Store
