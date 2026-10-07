@@ -37,7 +37,11 @@ step "Ön kontroller"
 [ -x Engine/dist/bin/graphify ] || fail "Gömülü motor yok: bash scripts/build-engine.sh"
 security find-identity -v -p codesigning | grep -q "$IDENTITY" || fail "Sertifika yok: $IDENTITY"
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 || fail "notarytool profili çalışmıyor: $NOTARY_PROFILE"
-python3 scripts/gen-notices.py >/dev/null || fail "Lisans bildirimleri üretilemedi"
+# Swift paketleri (Sparkle) indirilmiş olmalı: lisans metni oradan okunur.
+xcodegen generate >/dev/null
+xcodebuild -resolvePackageDependencies -project Mapo.xcodeproj -scheme Mapo \
+  -clonedSourcePackagesDirPath "$ROOT/build/SourcePackages" >/dev/null 2>&1 || fail "Swift paketleri indirilemedi"
+python3 scripts/gen-notices.py >/dev/null || fail "Lisans bildirimleri üretilemedi (python3 scripts/gen-notices.py)"
 [ -z "$(git status --porcelain)" ] || fail "Commit edilmemiş değişiklik var (lisans bildirimleri değiştiyse commit et)"
 BUILD_NUMBER="$(git rev-list --count HEAD)"
 echo "  Mapo $VERSION ($BUILD_NUMBER), $(git rev-parse --short HEAD)"
