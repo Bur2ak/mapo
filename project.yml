@@ -18,10 +18,11 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
-    # Faz 5'e kadar yerel imza; dağıtımda Developer ID (PLAN §3.7).
-    CODE_SIGN_IDENTITY: "-"
+    # Geliştirmede sabit kimlik (Apple Development): Anahtar Zinciri izni
+    # derlemeler arasında korunur. Dağıtımda Developer ID (PLAN §3.7, Faz 5).
+    CODE_SIGN_IDENTITY: "Apple Development"
     CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: BJRH6882TU
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_EMIT_LOC_STRINGS: YES

@@ -65,7 +65,7 @@ final class AppModel {
             }
             syncWatchers()
             await refreshStatuses()
-            await github.restore()
+            Task { await github.restore() }
             startBackgroundSync()
             // Catch up on what changed while Atlas was closed.
             if autoUpdate {

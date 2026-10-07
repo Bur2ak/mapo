@@ -154,3 +154,4 @@ Ayrıntı: [TASARIM.md](TASARIM.md).
 | A19 | Token git'e yalnız `GIT_CONFIG_*` ortam değişkeniyle, tek komutluk HTTP başlığı olarak verilir: `.git/config`'e, URL'ye, komut satırına (ps) asla yazılmaz; hata metinlerinde maskelenir. | 7 Ekim 2026 |
 | A20 | Arka plan güncellemesi yalnız `fetch` + `merge --ff-only`; kirli ağaç, yerel commit, ayrışmış dal varsa dokunulmaz ve sebebi not edilir. | 7 Ekim 2026 |
 | A21 | Atlas'ın birincil düğmesi kendi stili (`.accent`): amber üstüne koyu mürekkep. Sistem `.borderedProminent` beyaz yazı veriyordu (~1.9:1 kontrast). | 7 Ekim 2026 |
+| A22 | Anahtar Zinciri erişimi asla ana iş parçacığında yapılmaz (macOS izin penceresi arayüzü donduruyordu). Geliştirme sürümü sabit "Apple Development" kimliğiyle imzalanır (takım BJRH6882TU) ki izin derlemeler arasında korunsun; ad-hoc imza her derlemede yeniden izin istiyordu. Tüm GitHub isteklerinde 20 sn zaman aşımı. | 7 Ekim 2026 |

@@ -215,7 +215,7 @@ public struct GitHubAuth: Sendable {
     }
 
     private func post(_ url: String, _ form: [String: String]) async throws -> [String: Any] {
-        var req = URLRequest(url: URL(string: url)!)
+        var req = URLRequest(url: URL(string: url)!, timeoutInterval: 20)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -293,7 +293,7 @@ public struct GitHubAPI: Sendable {
     }
 
     private func get(_ url: URL) async throws -> (Data, HTTPURLResponse) {
-        var req = URLRequest(url: url)
+        var req = URLRequest(url: url, timeoutInterval: 20)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         req.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
