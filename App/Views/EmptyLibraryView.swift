@@ -31,6 +31,9 @@ struct EmptyLibraryView: View {
                 Button("GitHub'dan Ekle…") { NotificationCenter.default.post(name: .showGitHubSheet, object: nil) }
             }
             .controlSize(.large)
+
+            Button("Önce örnek bir haritaya bak") { Task { await model.openSample() } }
+                .buttonStyle(.link)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

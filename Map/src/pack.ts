@@ -276,7 +276,10 @@ function buildSymbols() {
     packSiblings(circles);
     const enc = packEnclose(circles);
     // Few symbols must not swell into a disc that looks like the file itself.
-    const s = Math.min((file.r * 0.8) / Math.max(enc.r, 1e-6), (file.r * 0.22) / Math.max(...circles.map((c) => c.r)));
+    // (Only for a handful: with many symbols one busy function would
+    // otherwise shrink the whole set into a speck in an empty ring.)
+    const fit = (file.r * 0.8) / Math.max(enc.r, 1e-6);
+    const s = circles.length <= 4 ? Math.min(fit, (file.r * 0.22) / Math.max(...circles.map((c) => c.r))) : fit;
     for (const cc of circles) {
       const sym: Circle = {
         key: n.id[cc.i],
@@ -915,7 +918,10 @@ function drawLabels() {
   };
   if (root) walk(root);
   // Big things first: they claim space.
-  for (const c of arcs.sort((a, b) => b.r - a.r)) arcLabel(c);
+  // An opened file whose name doesn't fit along its rim is named under it.
+  const unnamed: Circle[] = [];
+  for (const c of arcs.sort((a, b) => b.r - a.r)) if (!arcLabel(c) && c.kind === "file") unnamed.push(c);
+  for (const c of unnamed) innerLabel(c, true);
   // The selection names itself first; then big before small.
   const sel = selected ? visual(selected) : null;
   if (sel && sel.kind === "file" && !symbolsShown(sel)) innerLabel(sel);
@@ -937,9 +943,9 @@ function displayName(c: Circle): string {
 }
 
 /** Folder (or opened file) name along the top of its circle. */
-function arcLabel(c: Circle) {
+function arcLabel(c: Circle): boolean {
   const sr = c.r * cam.k;
-  if (sr < 42) return;
+  if (sr < 42) return false;
   const isDir = c.kind === "dir";
   const fs = Math.round(Math.max(10, Math.min(isDir ? 14 : 13, sr * 0.06)));
   const font = `${isDir ? 700 : 600} ${fs}px ${FONT}`;
@@ -956,7 +962,7 @@ function arcLabel(c: Circle) {
     span = total / R;
     if (span <= Math.PI * 0.6) break;
   }
-  if (span > Math.PI * 0.6) return;
+  if (span > Math.PI * 0.6) return false;
   const cx = toScreenX(c.x), cy = toScreenY(c.y);
   // Along the top; a file whose folder already claims the top (a folder
   // holding just this file) takes the bottom instead, reading left to right.
@@ -964,7 +970,7 @@ function arcLabel(c: Circle) {
   const bottom = { x0: top.x0, y0: cy + sr - fs * 1.6, x1: top.x1, y1: cy + sr + 2 };
   const visible = (b: Box) => b.x0 >= 2 && b.x1 <= W - 2 && b.y0 >= 2 && b.y1 <= H - 2;
   const under = collides(top) || !visible(top);
-  if (under && (isDir || collides(bottom) || !visible(bottom))) return;
+  if (under && (isDir || collides(bottom) || !visible(bottom))) return false;
   const box = under ? bottom : top;
   placed.push(box);
   const dim = dimming() && !(focus?.lit.has(c) || highlight?.set.has(c) || containsLit(c));
@@ -992,6 +998,7 @@ function arcLabel(c: Circle) {
     a += (dir * w) / 2 / R;
   }
   ctx.restore();
+  return true;
 }
 
 function containsLit(c: Circle): boolean {
@@ -1003,7 +1010,7 @@ function containsLit(c: Circle): boolean {
 
 /** File name inside its circle when it fits, otherwise under it like a
  * town on a map — as long as it collides with nothing already placed. */
-function innerLabel(c: Circle) {
+function innerLabel(c: Circle, belowOnly = false) {
   const sr = c.r * cam.k;
   if (sr < 4) return;
   const label = fileLabel(c);
@@ -1011,7 +1018,7 @@ function innerLabel(c: Circle) {
   if (dimming() && !isLit(c)) return;
   const dim = false;
   const x = toScreenX(c.x), y = toScreenY(c.y);
-  if (sr >= 11) {
+  if (sr >= 11 && !belowOnly) {
     let fs = Math.round(Math.max(9, Math.min(13, sr * 0.3)));
     let font = `600 ${fs}px ${FONT}`;
     let w = textWidth(label, font);

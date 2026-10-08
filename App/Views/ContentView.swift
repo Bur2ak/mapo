@@ -31,6 +31,8 @@ struct ContentView: View {
         #if DEBUG
         .task {
             let d = UserDefaults.standard
+            if d.bool(forKey: "mapoOnboarding") { model.showOnboarding = true }
+            if d.bool(forKey: "mapoSample") { model.finishOnboarding(); await model.openSample() }
             if d.bool(forKey: "mapoOpenSettings") || d.string(forKey: "mapoSettingsTab") != nil { openSettings() }
             if d.bool(forKey: "mapoShowGitHub") {
                 try? await Task.sleep(for: .milliseconds(600))
@@ -39,6 +41,11 @@ struct ContentView: View {
             }
         }
         #endif
+        .sheet(isPresented: $model.showOnboarding) {
+            OnboardingView()
+                .environment(model)
+                .interactiveDismissDisabled()
+        }
         .alert(item: $model.alert) { alert in
             Alert(title: Text(alert.title), message: Text(alert.message))
         }

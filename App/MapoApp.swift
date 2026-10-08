@@ -37,6 +37,10 @@ struct MapoApp: App {
                 Button("GitHub'dan Ekle…") { NotificationCenter.default.post(name: .showGitHubSheet, object: nil) }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
             }
+            CommandGroup(replacing: .help) {
+                Button("Mapo'ya Hoş Geldin") { model.showOnboarding = true }
+                Button("Örnek Projeyi Aç") { Task { await model.openSample() } }
+            }
             UpdaterCommands()
             MapCommands()
             InspectorCommands()

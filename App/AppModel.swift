@@ -64,6 +64,7 @@ final class AppModel {
                 selection = projects.first { $0.id == last }?.id ?? projects.first?.id
             }
             syncWatchers()
+            if projects.isEmpty && !UserDefaults.standard.bool(forKey: "onboardingDone") { showOnboarding = true }
             await refreshStatuses()
             Task { await github.restore() }
             startBackgroundSync()
@@ -192,6 +193,47 @@ final class AppModel {
 
     func indexAll() {
         for p in projects where p.lastIndex != nil { indexer.enqueue(p.id) }
+    }
+
+    // MARK: Onboarding
+
+    /// First launch: a short tour before the empty library.
+    var showOnboarding = false
+
+    func finishOnboarding() {
+        showOnboarding = false
+        UserDefaults.standard.set(true, forKey: "onboardingDone")
+    }
+
+    /// Mapo's own source, shipped in the app, as a ready-made first map.
+    /// Copied out of the bundle (read-only, signed) into the data folder.
+    func openSample() async {
+        guard let bundled = Bundle.main.url(forResource: "Sample", withExtension: nil)?.appendingPathComponent("Mapo") else {
+            alert = AlertMessage(title: String(localized: "Örnek proje bulunamadı"), message: String(localized: "Bu Mapo sürümünde örnek proje yok."))
+            return
+        }
+        let target = paths.base.appendingPathComponent("Sample/Mapo", isDirectory: true)
+        let fm = FileManager.default
+        do {
+            if !fm.fileExists(atPath: target.path) {
+                try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try fm.copyItem(at: bundled, to: target)
+            }
+        } catch {
+            alert = AlertMessage(error: error)
+            return
+        }
+        do {
+            selection = try await library.add(folder: target, name: String(localized: "Örnek: Mapo")).id
+        } catch ProjectLibrary.LibraryError.alreadyAdded(let id) {
+            selection = id
+        } catch {
+            alert = AlertMessage(error: error)
+            return
+        }
+        projects = await library.projects
+        syncWatchers()
+        if let id = selection, let p = projects.first(where: { $0.id == id }), p.lastIndex == nil { indexer.enqueue(id) }
     }
 
     /// Adds every folder in `urls`; reports the first failure, keeps going.

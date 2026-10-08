@@ -113,7 +113,12 @@ extension WorkspaceView {
         switch workspace.freshness.behind {
         case 0: return String(localized: "Güncel") + commit
         case let n?: return String(localized: "\(n) commit geride") + commit
-        case nil: return (workspace.project.rootPath as NSString).abbreviatingWithTildeInPath
+        case nil:
+            // Not a git repository: say when the map was made instead of a long path.
+            guard let at = workspace.project.lastIndex?.finishedAt else {
+                return (workspace.project.rootPath as NSString).abbreviatingWithTildeInPath
+            }
+            return String(localized: "Harita: \(at.formatted(.relative(presentation: .named)))")
         }
     }
 }
