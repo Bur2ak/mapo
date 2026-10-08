@@ -32,6 +32,10 @@ struct ContentView: View {
         .task {
             let d = UserDefaults.standard
             if d.bool(forKey: "mapoOnboarding") { model.showOnboarding = true }
+            if let out = d.string(forKey: "mapoDiagnosticsTo") {
+                try? await Task.sleep(for: .seconds(2))
+                try? Diagnostics.build(summary: Diagnostics.report(model: model), to: URL(fileURLWithPath: out))
+            }
             if d.bool(forKey: "mapoSample") { model.finishOnboarding(); await model.openSample() }
             if d.bool(forKey: "mapoOpenSettings") || d.string(forKey: "mapoSettingsTab") != nil { openSettings() }
             if d.bool(forKey: "mapoShowGitHub") {

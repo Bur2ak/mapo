@@ -31,8 +31,32 @@ final class IndexCoordinator {
     /// Changes arrived while this project was being indexed: run once more.
     @ObservationIgnored private var rerun: Set<UUID> = []
 
+    /// Automatic updates held back while Low Power Mode is on (PLAN §3.3).
+    private(set) var deferred: Set<UUID> = []
+    @ObservationIgnored private var powerObserver: NSObjectProtocol?
+
     init(paths: MapoPaths) {
         self.paths = paths
+        powerObserver = NotificationCenter.default.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.powerChanged() }
+        }
+    }
+
+    /// An update nobody asked for (file watcher, git, catch-up): waits while
+    /// the Mac is saving power. Asking for one (button, ⌘R) never waits.
+    func enqueueAutomatic(_ id: UUID) {
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            deferred.insert(id)
+            return
+        }
+        enqueue(id)
+    }
+
+    private func powerChanged() {
+        guard !ProcessInfo.processInfo.isLowPowerModeEnabled, !deferred.isEmpty else { return }
+        let ids = deferred
+        deferred.removeAll()
+        ids.sorted { $0.uuidString < $1.uuidString }.forEach(enqueue)
     }
 
     var engineAvailable: Bool { Engine.locate() != nil }
@@ -45,6 +69,7 @@ final class IndexCoordinator {
     }
 
     func enqueue(_ id: UUID) {
+        deferred.remove(id)
         if running?.id == id {
             rerun.insert(id)
             return

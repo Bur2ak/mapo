@@ -825,6 +825,16 @@
         }
       }
     },
+    "Düşük Güç modu: güncelleme bekliyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low Power Mode: update waiting"
+          }
+        }
+      }
+    },
     "Dış bağımlılık": {
       "localizations": {
         "en": {
@@ -1224,6 +1234,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Logs"
+          }
+        }
+      }
+    },
+    "Günlükler ve sürüm bilgisi tek bir zip'te; kod ya da harita içermez. Göndermeden önce açıp bakabilirsin.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs and version info in one zip; no code or maps. You can open it and look before sending."
           }
         }
       }
@@ -2189,6 +2209,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Table"
+          }
+        }
+      }
+    },
+    "Tanılama Paketini Kaydet…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Diagnostics…"
           }
         }
       }

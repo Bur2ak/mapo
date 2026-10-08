@@ -46,6 +46,8 @@ final class Workspace {
     private(set) var noisyFiles: Set<String> = []
     /// A re-index runs over an existing map (the map stays usable).
     var isRefreshing: Bool { graph != nil && indexer.isWorking(on: project.id) }
+    /// An automatic update is waiting for Low Power Mode to end.
+    var isDeferred: Bool { indexer.deferred.contains(project.id) }
 
     /// Error from a background refresh; the old map stays on screen.
     var lastIndexError: String? {

@@ -70,7 +70,7 @@ final class AppModel {
             startBackgroundSync()
             // Catch up on what changed while Mapo was closed.
             if autoUpdate {
-                for p in projects where p.lastIndex != nil && (behind[p.id] ?? 0) > 0 { indexer.enqueue(p.id) }
+                for p in projects where p.lastIndex != nil && (behind[p.id] ?? 0) > 0 { indexer.enqueueAutomatic(p.id) }
             }
         } catch {
             alert = AlertMessage(error: error)
@@ -112,11 +112,11 @@ final class AppModel {
             // auto-fetch): re-index only when HEAD actually moved.
             Task {
                 guard let head = await GitInfo.head(at: project.rootURL), head.commit != indexed.commit else { return }
-                indexer.enqueue(id)
+                indexer.enqueueAutomatic(id)
             }
             return
         }
-        indexer.enqueue(id)
+        indexer.enqueueAutomatic(id)
     }
 
     private func indexFinished(_ id: Project.ID, _ record: Project.IndexRecord) async {

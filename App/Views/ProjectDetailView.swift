@@ -109,6 +109,7 @@ extension WorkspaceView {
     /// "Güncel · 4270de4" / "3 commit geride" / "Güncelleniyor…" under the title.
     var statusLine: String {
         if workspace.isRefreshing { return String(localized: "Harita güncelleniyor…") }
+        if workspace.isDeferred { return String(localized: "Düşük Güç modu: güncelleme bekliyor") }
         if workspace.lastIndexError != nil { return String(localized: "Son güncelleme başarısız") }
         guard workspace.graph != nil else { return (workspace.project.rootPath as NSString).abbreviatingWithTildeInPath }
         let commit = workspace.project.lastIndex?.commit.map { " · " + $0.prefix(7) } ?? ""

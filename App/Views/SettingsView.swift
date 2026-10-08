@@ -111,6 +111,7 @@ private struct UpdatesRow: View {
 
 private struct AboutSettings: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         Form {
@@ -127,10 +128,14 @@ private struct AboutSettings: View {
                 Button("Üçüncü Taraf Lisansları…") { openWindow(id: "notices") }
             }
             LabeledContent("Günlükler") {
-                Button("Finder'da Göster") {
-                    let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/Mapo")
-                    try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
-                    NSWorkspace.shared.activateFileViewerSelecting([logs])
+                HStack {
+                    Button("Finder'da Göster") {
+                        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/Mapo")
+                        try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+                        NSWorkspace.shared.activateFileViewerSelecting([logs])
+                    }
+                    Button("Tanılama Paketini Kaydet…") { Diagnostics.save(model: model) }
+                        .help("Günlükler ve sürüm bilgisi tek bir zip'te; kod ya da harita içermez. Göndermeden önce açıp bakabilirsin.")
                 }
             }
         }
