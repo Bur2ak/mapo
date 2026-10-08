@@ -207,7 +207,9 @@ function build() {
     .sort((a, b) => (b.value! - a.value!) || a.data.name.localeCompare(b.data.name));
   const laid = pack<Tree>()
     .size([size, size])
-    .padding((d) => (d.depth === 0 ? 10 : d.height > 1 ? 6 : 3.5))(h);
+    // Big folders get a wider margin: a large sub-folder would otherwise
+    // hug its parent's edge and their rings blur into one thick line.
+    .padding((d) => (d.depth === 0 ? 10 : d.height > 1 ? 4 + Math.sqrt(d.value ?? 0) * 0.09 : 3.5))(h);
 
   const convert = (node: HierarchyCircularNode<Tree>, parent: Circle | null): Circle => {
     const d = node.data;
@@ -826,7 +828,16 @@ function drawLabels() {
   const sel = selected ? visual(selected) : null;
   if (sel && sel.kind === "file" && !symbolsShown(sel)) innerLabel(sel);
   for (const c of inner.sort((a, b) => b.r - a.r)) if (c !== sel) innerLabel(c);
-  for (const c of syms.sort((a, b) => b.r - a.r)) symbolLabel(c);
+  // Most connected first, and only as many as the file has room for: zooming
+  // in reveals the rest, like towns on a map.
+  symbolBudget.clear();
+  symbolLabeled.clear();
+  const n = payload?.nodes;
+  const rank = (c: Circle) => (c === selected ? 1e9 : n ? n.degree[c.idx] : c.r);
+  syms.sort((a, b) => rank(b) - rank(a) || b.r - a.r);
+  // Names inside their bubble first; names beside a bubble cover neighbours.
+  for (const c of syms) symbolLabel(c, true);
+  for (const c of syms) symbolLabel(c, false);
 }
 
 function displayName(c: Circle): string {
@@ -840,14 +851,20 @@ function arcLabel(c: Circle) {
   const isDir = c.kind === "dir";
   const fs = Math.round(Math.max(10, Math.min(isDir ? 14 : 13, sr * 0.06)));
   const font = `${isDir ? 700 : 600} ${fs}px ${FONT}`;
-  const text = displayName(c);
   const spacing = isDir ? fs * 0.08 : 0;
-  ctx.font = font;
-  const widths = [...text].map((ch) => textWidth(ch, font) + spacing);
-  const total = widths.reduce((a, b) => a + b, 0);
   const R = sr - fs * 0.55;
-  const span = total / R;
-  if (span > Math.PI * 0.8) return;
+  // "tests/mapocoretests" on a small circle reads as just "…/mapocoretests".
+  const full = displayName(c);
+  const short = full.includes("/") ? `…/${full.slice(full.lastIndexOf("/") + 1)}` : full;
+  let text = full, widths: number[] = [], total = 0, span = Infinity;
+  for (const candidate of full === short ? [full] : [full, short]) {
+    text = candidate;
+    widths = [...text].map((ch) => textWidth(ch, font) + spacing);
+    total = widths.reduce((a, b) => a + b, 0);
+    span = total / R;
+    if (span <= Math.PI * 0.6) break;
+  }
+  if (span > Math.PI * 0.6) return;
   const cx = toScreenX(c.x), cy = toScreenY(c.y);
   // Along the top; a file whose folder already claims the top (a folder
   // holding just this file) takes the bottom instead, reading left to right.
@@ -924,6 +941,28 @@ function innerLabel(c: Circle) {
       ctx.restore();
       return;
     }
+    const two = splitName(label);
+    if (two) {
+      for (const fs2 of [12, 11, 10, 9]) {
+        const font2 = `600 ${fs2}px ${FONT}`;
+        const w2 = Math.max(textWidth(two[0], font2), textWidth(two[1], font2));
+        const lh = fs2 * 1.15;
+        if (Math.hypot(w2 / 2, lh) > sr * 0.92) continue;
+        const box = { x0: x - w2 / 2, y0: y - lh, x1: x + w2 / 2, y1: y + lh };
+        if (collides(box)) break;
+        placed.push(box);
+        const fill = tone(base(c), theme.dark ? 0.12 : 0.06);
+        ctx.save();
+        ctx.font = font2;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = inkOn(fill);
+        ctx.fillText(two[0], x, y - lh / 2 + 0.5);
+        ctx.fillText(two[1], x, y + lh / 2 + 0.5);
+        ctx.restore();
+        return;
+      }
+    }
   }
   // Below the circle: when zoomed in enough that names are the point, or
   // always for the files a selection is about.
@@ -948,15 +987,81 @@ function innerLabel(c: Circle) {
 }
 
 /** Symbol names beside their dot, only when there is room. */
-function symbolLabel(c: Circle) {
+const symbolBudget = new Map<Circle, number>();
+const PX_PER_SYMBOL_LABEL = 15000;
+
+const symbolLabeled = new Set<Circle>();
+
+/** Split at the camelCase / snake_case boundary nearest the middle. */
+function splitName(name: string): [string, string] | null {
+  if (name.length < 9) return null;
+  let best = -1;
+  for (let i = 2; i < name.length - 2; i++) {
+    const boundary = (/[a-zçğıöşü0-9]/.test(name[i - 1]) && /[A-ZÇĞİÖŞÜ]/.test(name[i])) || name[i - 1] === "_";
+    if (boundary && (best < 0 || Math.abs(i - name.length / 2) < Math.abs(best - name.length / 2))) best = i;
+  }
+  return best < 0 ? null : [name.slice(0, best), name.slice(best)];
+}
+
+function symbolLabel(c: Circle, insideOnly: boolean) {
+  if (symbolLabeled.has(c)) return;
   const sr = c.r * cam.k;
-  if (sr < 3.2 || c.parent!.r * cam.k < 120) return;
+  const f = c.parent!, fr0 = f.r * cam.k;
+  if (sr < 3.2 || fr0 < 120) return;
   if (dimming() && !isLit(c)) return;
+  const must = c === selected || c === hovered || (dimming() && isLit(c));
+  const used = symbolBudget.get(f) ?? 0;
+  if (!must && used >= Math.max(6, Math.floor((Math.PI * fr0 * fr0) / PX_PER_SYMBOL_LABEL))) return;
+  const cx0 = toScreenX(c.x), cy0 = toScreenY(c.y);
+  // Inside its own bubble when the name fits: no halo over the neighbours.
+  for (const fs of [12, 11, 10, 9]) {
+    const font = `600 ${fs}px ${FONT}`;
+    const w = textWidth(c.name, font);
+    if (w > sr * 1.8 || fs > sr * 0.9) continue;
+    const box = { x0: cx0 - w / 2, y0: cy0 - fs / 2, x1: cx0 + w / 2, y1: cy0 + fs / 2 };
+    if (collides(box)) return;
+    placed.push(box);
+    symbolLabeled.add(c);
+    symbolBudget.set(f, used + 1);
+    ctx.save();
+    ctx.font = font;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = inkOn(tone(base(c), 0));
+    ctx.fillText(c.name, cx0, cy0 + 0.5);
+    ctx.restore();
+    return;
+  }
+  // A long camelCase name on two lines ("KulupUyeler / Yanit").
+  const lines = splitName(c.name);
+  if (lines) {
+    for (const fs of [11, 10, 9]) {
+      const font = `600 ${fs}px ${FONT}`;
+      const w = Math.max(textWidth(lines[0], font), textWidth(lines[1], font));
+      const lh = fs * 1.15;
+      if (Math.hypot(w / 2, lh) > sr * 0.94) continue;
+      const box = { x0: cx0 - w / 2, y0: cy0 - lh, x1: cx0 + w / 2, y1: cy0 + lh };
+      if (collides(box)) break;
+      placed.push(box);
+      symbolLabeled.add(c);
+      symbolBudget.set(f, used + 1);
+      ctx.save();
+      ctx.font = font;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = inkOn(tone(base(c), 0));
+      ctx.fillText(lines[0], cx0, cy0 - lh / 2 + 0.5);
+      ctx.fillText(lines[1], cx0, cy0 + lh / 2 + 0.5);
+      ctx.restore();
+      return;
+    }
+  }
+  if (insideOnly) return;
   const font = `500 11px ${FONT}`;
   const w = textWidth(c.name, font);
   const cx = toScreenX(c.x), y = toScreenY(c.y);
   // Right of the dot, else left of it; never spilling out of its file.
-  const f = c.parent!, fx = toScreenX(f.x), fy = toScreenY(f.y), fr = f.r * cam.k - 3;
+  const fx = toScreenX(f.x), fy = toScreenY(f.y), fr = fr0 - 3;
   const inside = (x0: number, x1: number) =>
     [x0, x1].every((px) => [y - 7, y + 7].every((py) => Math.hypot(px - fx, py - fy) <= fr));
   let x = cx + sr + 4;
@@ -964,6 +1069,8 @@ function symbolLabel(c: Circle) {
   const box = { x0: x - 2, y0: y - 7, x1: x + w + 2, y1: y + 7 };
   if (!inside(box.x0, box.x1) || collides(box)) return;
   placed.push(box);
+  symbolLabeled.add(c);
+  symbolBudget.set(f, used + 1);
   ctx.save();
   ctx.font = font;
   ctx.textBaseline = "middle";
@@ -1194,7 +1301,10 @@ function showTip(c: Circle, x: number, y: number) {
   const t = document.createElement("b");
   t.textContent = c.name;
   const m = document.createElement("span");
-  m.textContent = `${kindName}${lines ? ` · ${lines.toLocaleString("tr")} satır` : ""}`;
+  const links = n.degree[c.idx] ?? 0;
+  m.textContent = [kindName, lines ? `${lines.toLocaleString("tr")} satır` : "", links ? `${links.toLocaleString("tr")} bağlantı` : ""]
+    .filter(Boolean)
+    .join(" · ");
   const p = document.createElement("small");
   p.textContent = where;
   tip.append(t, m, p);
