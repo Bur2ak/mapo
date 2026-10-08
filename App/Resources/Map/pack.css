@@ -90,3 +90,4 @@
   color: #0E1015;
 }
 #legend b { color: var(--label); font-weight: 600; font-variant-numeric: tabular-nums; }
+#legend em { font-style: normal; color: var(--muted); padding-left: 10px; border-left: 1px solid var(--pill-border); }

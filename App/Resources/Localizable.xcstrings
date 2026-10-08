@@ -381,6 +381,16 @@
         }
       }
     },
+    "Bağlantılar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Links"
+          }
+        }
+      }
+    },
     "Bağlantıları gör": {
       "localizations": {
         "en": {
@@ -2233,6 +2243,16 @@
         }
       }
     },
+    "Tüm bağlantılar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All links"
+          }
+        }
+      }
+    },
     "Tümü": {
       "localizations": {
         "en": {
@@ -2319,6 +2339,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zoom in (⌘+)"
+          }
+        }
+      }
+    },
+    "Yalnız HTTP ve SQL": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP and SQL only"
+          }
+        }
+      }
+    },
+    "Yalnız içe aktarmalar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imports only"
+          }
+        }
+      }
+    },
+    "Yalnız çağrılar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calls only"
           }
         }
       }

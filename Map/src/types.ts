@@ -22,6 +22,8 @@ export const enum Rel {
   Other = 3,
   /** File ↔ file, lifted from symbol edges (Payload.fileLinks). */
   FileLink = 4,
+  /** HTTP request / SQL read or write (Mapo's bridges). */
+  Bridge = 5,
 }
 
 export interface Payload {
@@ -57,6 +59,7 @@ export interface Payload {
 /** 0: files only · 1: + types, functions, methods · 2: everything. */
 export type Detail = 0 | 1 | 2;
 export type ColorMode = "folder" | "recency" | "coupling" | "community";
+export type LinkFilter = "all" | "calls" | "imports" | "bridges";
 
 export type Outgoing =
   | { type: "ready" }

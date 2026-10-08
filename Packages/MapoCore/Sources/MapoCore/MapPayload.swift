@@ -177,6 +177,7 @@ public struct MapPayload: Encodable, Sendable {
         if r.isContainment { return 0 }
         if r.isCall { return 1 }
         if r.isImport { return 2 }
+        if r == .requests || r == .reads || r == .writes { return 5 }
         return 3
     }
 

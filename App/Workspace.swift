@@ -303,6 +303,7 @@ final class Workspace {
         }
         if let c = d.string(forKey: "mapoColor"), let mode = MapController.ColorMode(rawValue: c) { map.colorMode = mode }
         if d.bool(forKey: "mapoHideTests") { map.hideTests = true }
+        if let l = d.string(forKey: "mapoLinks"), let f = MapController.LinkFilter(rawValue: l) { map.linkFilter = f }
         let zoom = d.double(forKey: "mapoZoom")
         let select = d.string(forKey: "mapoSelect")
         let search = d.string(forKey: "mapoSearch")

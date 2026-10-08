@@ -59,6 +59,20 @@ final class MapController: NSObject {
         }
     }
 
+    /// Which links a selection shows.
+    enum LinkFilter: String, CaseIterable, Identifiable {
+        case all, calls, imports, bridges
+        var id: String { rawValue }
+        var title: LocalizedStringKey {
+            switch self {
+            case .all: "Tüm bağlantılar"
+            case .calls: "Yalnız çağrılar"
+            case .imports: "Yalnız içe aktarmalar"
+            case .bridges: "Yalnız HTTP ve SQL"
+            }
+        }
+    }
+
     /// One coloured area of the map, for the legend.
     struct Group: Identifiable, Equatable {
         /// -1 = everything too small to get its own colour.
@@ -88,6 +102,7 @@ final class MapController: NSObject {
     }
     @ObservationIgnored private var syncingFromMap = false
     var colorMode: ColorMode = .folder { didSet { call("mapoMap.setColorMode(v)", ["v": colorMode.rawValue]) } }
+    var linkFilter: LinkFilter = .all { didSet { call("mapoMap.setLinkFilter(v)", ["v": linkFilter.rawValue]) } }
     var hideTests = false { didSet { call("mapoMap.setHideTests(v)", ["v": hideTests]) } }
     /// Build output, bundles and tool config (hidden by default).
     var showNoise = false {
@@ -189,6 +204,7 @@ final class MapController: NSObject {
             call("mapoMap.setLocale(l)", ["l": Bundle.main.preferredLocalizations.first ?? "tr"])
             call("mapoMap.setDetail(v)", ["v": detail.rawValue])
             call("mapoMap.setColorMode(v)", ["v": colorMode.rawValue])
+            call("mapoMap.setLinkFilter(v)", ["v": linkFilter.rawValue])
             call("mapoMap.setHideTests(v)", ["v": hideTests])
             call("mapoMap.setShowNoise(v)", ["v": showNoise])
             pending.forEach { call($0.0, $0.1) }

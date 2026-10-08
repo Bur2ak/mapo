@@ -151,6 +151,12 @@ private struct WorkspaceToolbar: ToolbarContent {
                     ForEach(MapController.ColorMode.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.inline)
+                Divider()
+                Picker("Bağlantılar", selection: $map.linkFilter) {
+                    ForEach(MapController.LinkFilter.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                Divider()
                 Toggle("Testleri gizle", isOn: $map.hideTests)
                 Toggle("Yapılandırma ve derleme dosyalarını göster", isOn: $map.showNoise)
                 Divider()

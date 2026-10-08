@@ -12,7 +12,7 @@
 import { hierarchy, pack, packEnclose, packSiblings, type HierarchyCircularNode } from "d3-hierarchy";
 
 import { DARK, LIGHT, mix, neutralColor, spreadColor, type Theme } from "./palette";
-import { Kind, type ColorMode, type Detail, type GroupInfo, type Outgoing, type Payload } from "./types";
+import { type LinkFilter, Kind, Rel, type ColorMode, type Detail, type GroupInfo, type Outgoing, type Payload } from "./types";
 
 // ---------------------------------------------------------------------------
 // Bridge
@@ -62,6 +62,7 @@ const STRINGS = {
     veryDense: "Çok yoğun", dense: "Yoğun", medium: "Orta", sparse: "Az ya da yok",
     file: "Dosya", function: "Fonksiyon", method: "Metot", type: "Tip", document: "Belge", route: "HTTP uç noktası", table: "Tablo", symbol: "Sembol",
     lines: "satır", links: "bağlantı", other: "Diğer",
+    onlyCalls: "yalnız çağrılar", onlyImports: "yalnız içe aktarmalar", onlyBridges: "yalnız HTTP ve SQL",
   },
   en: {
     loading: "Loading map…", loadFailed: "Couldn't load the map data", empty: "Nothing to show in this project",
@@ -70,6 +71,7 @@ const STRINGS = {
     veryDense: "Very dense", dense: "Dense", medium: "Medium", sparse: "Little or none",
     file: "File", function: "Function", method: "Method", type: "Type", document: "Document", route: "HTTP endpoint", table: "Table", symbol: "Symbol",
     lines: "lines", links: "links", other: "Other",
+    onlyCalls: "calls only", onlyImports: "imports only", onlyBridges: "HTTP and SQL only",
   },
 };
 type Lang = keyof typeof STRINGS;
@@ -456,6 +458,14 @@ function anchorFor(from: Circle, x: Circle): Circle {
   return cur;
 }
 
+/** Which links a selection shows (View › Links). */
+let linkFilter: LinkFilter = "all";
+const relPasses = (r: number) =>
+  linkFilter === "all" ? r !== Rel.Contains
+  : linkFilter === "calls" ? r === Rel.Call
+  : linkFilter === "imports" ? r === Rel.Import
+  : r === Rel.Bridge;
+
 function computeFocus() {
   focus = null;
   if (!selected || !payload) return;
@@ -472,7 +482,23 @@ function computeFocus() {
     entry.members.add(other);
     lit.add(other);
   };
-  if (selected.kind === "file") {
+  if (selected.kind === "file" && linkFilter !== "all") {
+    // Filtered: lift only the matching symbol edges to files here.
+    const n = p.nodes, e = p.edges;
+    const fileOf = (i: number) => (n.kind[i] === Kind.File ? i : n.owner?.[i] ?? -1);
+    for (let i = 0; i < e.s.length; i++) {
+      if (!relPasses(e.r[i])) continue;
+      const sf = fileOf(e.s[i]), tf = fileOf(e.t[i]);
+      if (sf < 0 || tf < 0 || sf === tf) continue;
+      if (sf === selected.idx) {
+        const t = byKey.get(n.id[tf]);
+        if (t) add(uses, t, 1);
+      } else if (tf === selected.idx) {
+        const s = byKey.get(n.id[sf]);
+        if (s) add(usedBy, s, 1);
+      }
+    }
+  } else if (selected.kind === "file") {
     const fl = p.fileLinks;
     for (let i = 0; i < fl.s.length; i++) {
       if (fl.s[i] === selected.idx) {
@@ -493,7 +519,9 @@ function computeFocus() {
       return owner >= 0 ? byKey.get(p.nodes.id[owner]) : undefined;
     };
     for (let i = 0; i < e.s.length; i++) {
-      if (e.r[i] === 0 || e.r[i] === 2) continue;  // containment / imports are file-level
+      if (e.r[i] === Rel.Contains) continue;
+      // Imports are file-level: a symbol shows them only when asked for.
+      if (linkFilter === "all" ? e.r[i] === Rel.Import : !relPasses(e.r[i])) continue;
       if (e.s[i] === selected.idx) {
         const t = resolve(e.t[i]);
         if (t) add(uses, t, 1);
@@ -651,7 +679,7 @@ function updateLegend() {
     return set.size;
   };
   const out = focus ? count(focus.uses) : 0, inn = focus ? count(focus.usedBy) : 0;
-  const key = highlight && highlightLabel ? `h|${highlightLabel}` : focus && selected ? `${out}|${inn}|${theme.dark}` : "";
+  const key = highlight && highlightLabel ? `h|${highlightLabel}` : focus && selected ? `${out}|${inn}|${theme.dark}|${linkFilter}|${lang}` : "";
   if (key === legendKey) return;
   legendKey = key;
   legend.hidden = !key;
@@ -684,6 +712,11 @@ function updateLegend() {
   if (out) legend.append(row(theme.accent, t("uses"), out, "→"));
   if (inn) legend.append(row(inColor, t("usedBy"), inn, "←"));
   if (!out && !inn) legend.append(t("noLinks"));
+  if (linkFilter !== "all") {
+    const f = document.createElement("em");
+    f.textContent = t(linkFilter === "calls" ? "onlyCalls" : linkFilter === "imports" ? "onlyImports" : "onlyBridges");
+    legend.append(f);
+  }
 }
 
 /** Inside a folder, everything around it steps back so the edges of the
@@ -1625,6 +1658,15 @@ const api = {
     o.fillRect(0, 0, out.width, out.height);
     o.drawImage(canvas, 0, 0);
     return out.toDataURL("image/png");
+  },
+  setLinkFilter: (f: LinkFilter) => {
+    if (f === linkFilter) return;
+    linkFilter = f;
+    if (selected) {
+      computeFocus();
+      legendKey = "";
+    }
+    requestDraw();
   },
   setLocale: (l: string) => {
     const next: Lang = l.toLowerCase().startsWith("tr") ? "tr" : "en";
