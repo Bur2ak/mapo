@@ -9,6 +9,10 @@ export const enum Kind {
   Symbol = 4,
   External = 5,
   Document = 6,
+  /** HTTP route found by Mapo's bridges ("GET /api/x/:id"). */
+  Route = 7,
+  /** Database table (CREATE TABLE in a .sql file). */
+  Table = 8,
 }
 
 export const enum Rel {

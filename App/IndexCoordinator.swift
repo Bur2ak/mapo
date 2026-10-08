@@ -95,6 +95,11 @@ final class IndexCoordinator {
             do {
                 let head = await GitInfo.head(at: root)
                 try await engine.index(root: root, output: output, logName: id.uuidString, progress: report)
+                // HTTP routes / SQL tables graphify can't see (PLAN §3.6), from
+                // graphify's own graph so a stale bridges file never feeds back.
+                if let raw = try? Data(contentsOf: graphURL), let (plain, _) = try? GraphLoader.decode(raw) {
+                    Bridges.write(root: root, graph: plain, graphDir: graphURL.deletingLastPathComponent())
+                }
                 let (graph, meta) = try GraphLoader.load(from: graphURL)
                 result = .success(Project.IndexRecord(
                     finishedAt: .now,

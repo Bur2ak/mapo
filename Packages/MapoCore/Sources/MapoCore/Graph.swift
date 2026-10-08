@@ -93,6 +93,10 @@ public struct Node: Sendable, Hashable, Identifiable {
         case symbol
         case external
         case document
+        /// `GET /api/kulup/:id`, found by `Bridges` in a server file.
+        case route
+        /// A database table, from `CREATE TABLE` in a `.sql` file.
+        case table
     }
 }
 
@@ -135,6 +139,11 @@ public struct Relation: RawRepresentable, Sendable, Hashable, ExpressibleByStrin
     public static let inherits: Relation = "inherits"
     public static let reExports: Relation = "re_exports"
     public static let dynamicImport: Relation = "dynamic_import"
+    /// Client code → HTTP route (Bridges).
+    public static let requests: Relation = "requests"
+    /// Code → table (Bridges).
+    public static let reads: Relation = "reads"
+    public static let writes: Relation = "writes"
 
     public var isCall: Bool { self == .calls || self == .indirectCall }
     public var isImport: Bool {

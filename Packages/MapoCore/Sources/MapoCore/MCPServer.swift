@@ -126,6 +126,8 @@ public final class MCPServer: @unchecked Sendable {
              ["project": projectProp, "path": ["type": "string", "description": "Repo-relative file path or file name."]], ["project", "path"]),
         tool("mapo_path", "Shortest chain of calls/imports from A to B — how does A reach B?",
              ["project": projectProp, "from": symbolProp, "to": symbolProp], ["project", "from", "to"]),
+        tool("mapo_endpoints", "HTTP endpoints the server defines (Hono/Express/Next…), where each is defined and which client functions call it; plus database tables with their readers/writers. Use it to cross the client↔server and code↔database boundary.",
+             ["project": projectProp, "query": ["type": "string", "description": "Optional filter on the path or table name (e.g. '/kulup', 'profiles')."]], ["project"]),
         tool("mapo_impact", "Blast radius: what may break if this symbol or file changes, grouped by distance.",
              ["project": projectProp, "symbol": symbolProp, "depth": ["type": "integer", "description": "Rings to walk (1–4, default 2)."]],
              ["project", "symbol"]),
@@ -162,6 +164,13 @@ public final class MCPServer: @unchecked Sendable {
             id: \(n.id)
             callers: \(graph.callers(of: p).count) · callees: \(graph.callees(of: p).count) · importers: \(graph.importers(of: p).count) · imports: \(graph.imports(of: p).count) · contains: \(graph.children(of: p).count)
             """
+            // HTTP / SQL bridges, listed: they are what an agent can't grep for.
+            for (title, rel, incoming) in [("Requested by", Relation.requests, true), ("Requests", .requests, false),
+                                           ("Read by", .reads, true), ("Written by", .writes, true),
+                                           ("Reads tables", .reads, false), ("Writes tables", .writes, false)] {
+                let ps = bridged(graph, p, rel, incoming: incoming)
+                if !ps.isEmpty { out += "\n" + list(title, ps, graph) }
+            }
         case "mapo_callers":
             let p = try resolve(try str(a, "symbol"), graph, search)
             out = list("Callers of \(graph.nodes[p].name)", unique(graph.callers(of: p).map(\.node)), graph)
@@ -187,6 +196,28 @@ public final class MCPServer: @unchecked Sendable {
                 return rel + line(graph, node)
             }
             out = (path.directed ? "Path:" : "Related (ignoring direction):") + "\n" + steps.joined(separator: "\n")
+        case "mapo_endpoints":
+            let q = (a["query"] as? String)?.lowercased() ?? ""
+            let routes = graph.nodes.indices.filter { graph.nodes[$0].kind == .route && (q.isEmpty || graph.nodes[$0].label.lowercased().contains(q)) }
+            let tables = graph.nodes.indices.filter { graph.nodes[$0].kind == .table && (q.isEmpty || graph.nodes[$0].label.lowercased().contains(q)) }
+            if routes.isEmpty && tables.isEmpty {
+                out = q.isEmpty ? "No HTTP endpoints or tables found in this project." : "No endpoint or table matches '\(q)'."
+                break
+            }
+            var parts: [String] = []
+            if !routes.isEmpty {
+                parts.append("Endpoints (\(routes.count)):\n" + routes.prefix(120).map { r in
+                    let callers = bridged(graph, r, .requests, incoming: true)
+                    let who = callers.prefix(5).map { graph.nodes[$0].name }.joined(separator: ", ")
+                    return "  " + line(graph, r) + "  ← \(callers.count) caller\(callers.count == 1 ? "" : "s")" + (who.isEmpty ? "" : ": \(who)")
+                }.joined(separator: "\n") + (routes.count > 120 ? "\n  … \(routes.count - 120) more" : ""))
+            }
+            if !tables.isEmpty {
+                parts.append("Tables (\(tables.count)):\n" + tables.prefix(120).map { t in
+                    "  " + line(graph, t) + "  read by \(bridged(graph, t, .reads, incoming: true).count), written by \(bridged(graph, t, .writes, incoming: true).count)"
+                }.joined(separator: "\n"))
+            }
+            out = parts.joined(separator: "\n\n") + "\n(Inferred from code patterns; confirm in the files.)"
         case "mapo_impact":
             let p = try resolve(try str(a, "symbol"), graph, search)
             let depth = min(4, max(1, a["depth"] as? Int ?? 2))
@@ -239,9 +270,12 @@ public final class MCPServer: @unchecked Sendable {
         }
         let url = paths.graphFile(project.id)
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let modified = attrs[.modificationDate] as? Date else {
+              var modified = attrs[.modificationDate] as? Date else {
             throw ToolError(message: "\(project.name) has no map yet. Open Mapo and build it.")
         }
+        // Bridges are written just after the graph: either changing reloads.
+        let bridges = url.deletingLastPathComponent().appendingPathComponent(Bridges.fileName).path
+        if let b = (try? FileManager.default.attributesOfItem(atPath: bridges))?[.modificationDate] as? Date, b > modified { modified = b }
         if let c = cache[project.id], c.modified == modified { return (project, c.graph, c.search) }
         let graph: Graph
         do {
@@ -290,6 +324,16 @@ public final class MCPServer: @unchecked Sendable {
         let loc = n.sourceFile.map { f in n.line.map { "\(f):\($0)" } ?? f } ?? "(external)"
         let name = n.kind == .file ? n.label : n.name
         return "\(n.kind.rawValue) \(name)  \(loc)"
+    }
+
+    private func bridged(_ g: Graph, _ p: Int, _ r: Relation, incoming: Bool) -> [Int] {
+        var seen = Set<Int>()
+        return (incoming ? g.incoming[p] : g.outgoing[p]).compactMap { e -> Int? in
+            let edge = g.edges[e]
+            guard edge.relation == r else { return nil }
+            let other = incoming ? edge.sourcePosition : edge.targetPosition
+            return seen.insert(other).inserted ? other : nil
+        }
     }
 
     private func list(_ title: String, _ positions: [Int], _ g: Graph) -> String {

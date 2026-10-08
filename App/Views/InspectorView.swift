@@ -114,7 +114,12 @@ private struct NodeInspector: View {
         }
         FileDependencySection(title: "Kullandığı dosyalar", deps: deps.uses.filter(meaningful), graph: graph)
         FileDependencySection(title: "Kullanan dosyalar", deps: deps.usedBy.filter(meaningful), graph: graph)
-        RelationSection(title: "İçindekiler", positions: unique(graph.children(of: position)), graph: graph)
+        let children = unique(graph.children(of: position))
+        let routes = children.filter { graph.nodes[$0].kind == .route }
+        let tables = children.filter { graph.nodes[$0].kind == .table }
+        RelationSection(title: "Uç noktaları", positions: routes, graph: graph)
+        RelationSection(title: "Tanımladığı tablolar", positions: tables, graph: graph)
+        RelationSection(title: "İçindekiler", positions: children.filter { !routes.contains($0) && !tables.contains($0) }, graph: graph)
     }
 
     @ViewBuilder
@@ -130,6 +135,12 @@ private struct NodeInspector: View {
         RelationSection(title: "İçe aktaranlar", positions: importers, graph: graph)
         RelationSection(title: "İçe aktardıkları", positions: imports, graph: graph)
         RelationSection(title: "Üyeler", positions: children, graph: graph)
+        RelationSection(title: "İstek atanlar", positions: related(.requests, incoming: true), graph: graph)
+        RelationSection(title: "Attığı istekler", positions: related(.requests, incoming: false), graph: graph)
+        RelationSection(title: "Okuyanlar", positions: related(.reads, incoming: true), graph: graph)
+        RelationSection(title: "Yazanlar", positions: related(.writes, incoming: true), graph: graph)
+        RelationSection(title: "Okuduğu tablolar", positions: related(.reads, incoming: false), graph: graph)
+        RelationSection(title: "Yazdığı tablolar", positions: related(.writes, incoming: false), graph: graph)
         if let parent = graph.parent(of: position), graph.nodes[parent].kind != .file || node.kind != .file {
             RelationSection(title: "Tanımlandığı yer", positions: [parent], graph: graph)
         }
@@ -162,6 +173,16 @@ private struct NodeInspector: View {
             .accessibilityLabel("Haritada bul")
         }
         .controlSize(.small)
+    }
+
+    /// Bridge edges (HTTP / SQL) of one relation, in one direction.
+    private func related(_ r: Relation, incoming: Bool) -> [Int] {
+        let list = incoming ? graph.incoming[position] : graph.outgoing[position]
+        return unique(list.compactMap { e in
+            let edge = graph.edges[e]
+            guard edge.relation == r else { return nil }
+            return incoming ? edge.sourcePosition : edge.targetPosition
+        })
     }
 
     private func unique(_ positions: [Int]) -> [Int] {
@@ -266,6 +287,12 @@ private struct OverlayInspector: View {
         case (.inherits, false): "tarafından miras alınır"
         case (.references, true): "kullanır"
         case (.references, false): "tarafından kullanılır"
+        case (.requests, true): "istek atar"
+        case (.requests, false): "isteğini karşılar"
+        case (.reads, true): "okur"
+        case (.reads, false): "tarafından okunur"
+        case (.writes, true): "yazar"
+        case (.writes, false): "tarafından yazılır"
         case (_, true) where r.isImport: "içe aktarır"
         case (_, false) where r.isImport: "tarafından içe aktarılır"
         default: forward ? "bağlı" : "bağlı (ters yön)"
@@ -428,14 +455,19 @@ private struct CodePreview: View {
     let url: URL
     let line: Int
     @State private var lines: [(Int, String)] = []
+    /// Fits the widest line number shown (monospaced 11 pt ≈ 6.7 pt a digit).
+    private var gutter: CGFloat { CGFloat(String(lines.last?.0 ?? 0).count) * 6.8 + 2 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(lines, id: \.0) { number, text in
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("\(number)")
+                    // Verbatim: no "1.188" grouping; wide enough for 5 digits.
+                    Text(verbatim: String(number))
                         .foregroundStyle(.tertiary)
-                        .frame(width: 30, alignment: .trailing)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .frame(minWidth: gutter, alignment: .trailing)
                     Text(text.isEmpty ? " " : text)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -683,6 +715,8 @@ extension Node.Kind {
         case .symbol: "Sembol"
         case .external: "Dış bağımlılık"
         case .document: "Belge"
+        case .route: "HTTP uç noktası"
+        case .table: "Tablo"
         }
     }
 
@@ -695,6 +729,8 @@ extension Node.Kind {
         case .symbol: "number"
         case .external: "shippingbox"
         case .document: "text.book.closed"
+        case .route: "network"
+        case .table: "tablecells"
         }
     }
 }

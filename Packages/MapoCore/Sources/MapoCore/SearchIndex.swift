@@ -173,6 +173,7 @@ public struct SearchIndex: Sendable {
         case .file: 8
         case .symbol: 4
         case .document: 0
+        case .route, .table: 10
         case .external: -20
         }
     }

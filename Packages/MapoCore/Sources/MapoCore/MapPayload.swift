@@ -168,6 +168,8 @@ public struct MapPayload: Encodable, Sendable {
         case .symbol: 4
         case .external: 5
         case .document: 6
+        case .route: 7
+        case .table: 8
         }
     }
 

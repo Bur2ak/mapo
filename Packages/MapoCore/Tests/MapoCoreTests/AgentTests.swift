@@ -40,7 +40,7 @@ struct MCPServerTests {
         #expect(result["protocolVersion"] as? String == MCPServer.protocolVersion)
         #expect((result["capabilities"] as? [String: Any])?["tools"] != nil)
         let tools = try #require((try rpc(s, "tools/list")["result"] as? [String: Any])?["tools"] as? [[String: Any]])
-        #expect(tools.count == 8)
+        #expect(tools.count == 9)
         for t in tools {
             let schema = try #require(t["inputSchema"] as? [String: Any])
             #expect(schema["type"] as? String == "object")
@@ -101,6 +101,32 @@ struct MCPServerTests {
         let (impact, _) = try tool(s, "mapo_impact", ["project": "deneme", "symbol": "istek", "depth": 2])
         #expect(impact.contains("Distance 1") && impact.contains("kulupOzelSohbetAc"))
         #expect(impact.contains("Distance 2") && impact.contains("kulupSohbetiAc"))
+    }
+
+    @Test func endpointsAndBridgedNode() throws {
+        let (s, base) = try server()
+        let (none, _) = try tool(s, "mapo_endpoints", ["project": "deneme"])
+        #expect(none.contains("No HTTP endpoints"))
+        // A bridges file beside graph.json (written by the app after indexing).
+        let lib = try String(contentsOf: base.appendingPathComponent("library.json"), encoding: .utf8)
+        let at = try #require(lib.range(of: #"[0-9A-F-]{36}"#, options: .regularExpression)).lowerBound
+        let dir = MapoPaths(base: base).graphFile(UUID(uuidString: String(lib[at...].prefix(36)))!).deletingLastPathComponent()
+        let bridges = """
+        {"nodes":[{"id":"mapo:route:POST /api/kulup/:id/sohbet","label":"POST /api/kulup/:id/sohbet","type":"route","source_file":"apps/api/src/routes/kulup.ts","source_location":"L40"},
+                  {"id":"mapo:table:kulupler","label":"kulupler","type":"table","source_file":"apps/api/migrations/0001.sql","source_location":"L3"}],
+         "links":[{"source":"fn_ozel","target":"mapo:route:POST /api/kulup/:id/sohbet","relation":"requests","confidence":"INFERRED"},
+                  {"source":"m_oda","target":"mapo:table:kulupler","relation":"writes","confidence":"INFERRED"}]}
+        """
+        try Data(bridges.utf8).write(to: dir.appendingPathComponent(Bridges.fileName))
+        // The running server picks the new bridges up (no restart).
+        let fresh = s
+        let (eps, _) = try tool(fresh, "mapo_endpoints", ["project": "deneme"])
+        #expect(eps.contains("route POST /api/kulup/:id/sohbet  apps/api/src/routes/kulup.ts:40  ← 1 caller: kulupOzelSohbetAc"))
+        #expect(eps.contains("table kulupler") && eps.contains("written by 1"))
+        let (filtered, _) = try tool(fresh, "mapo_endpoints", ["project": "deneme", "query": "zzz"])
+        #expect(filtered.contains("No endpoint or table matches"))
+        let (node, _) = try tool(fresh, "mapo_node", ["project": "deneme", "symbol": "kulupOzelSohbetAc"])
+        #expect(node.contains("Requests (1):") && node.contains("POST /api/kulup/:id/sohbet"))
     }
 
     @Test func singleProjectNeedsNoName() throws {

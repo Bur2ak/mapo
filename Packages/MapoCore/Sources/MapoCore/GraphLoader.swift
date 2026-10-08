@@ -26,6 +26,8 @@ public enum GraphLoader {
         }
     }
 
+    /// Loads graphify's graph and merges Mapo's own bridges
+    /// (`mapo-bridges.json` beside it) when present.
     public static func load(from url: URL) throws -> (Graph, Metadata) {
         let data: Data
         do {
@@ -33,15 +35,22 @@ public enum GraphLoader {
         } catch {
             throw LoadError.unreadable(url, underlying: error)
         }
-        return try decode(data)
+        let bridges = try? Data(contentsOf: url.deletingLastPathComponent().appendingPathComponent(Bridges.fileName))
+        return try decode(data, merging: bridges)
     }
 
-    public static func decode(_ data: Data) throws -> (Graph, Metadata) {
-        let raw: RawGraph
+    public static func decode(_ data: Data, merging extra: Data? = nil) throws -> (Graph, Metadata) {
+        var raw: RawGraph
         do {
             raw = try JSONDecoder().decode(RawGraph.self, from: data)
         } catch {
             throw LoadError.malformed(underlying: error)
+        }
+        // A broken bridges file is ignored, never fatal.
+        if let extra, let more = try? JSONDecoder().decode(RawGraph.self, from: extra) {
+            raw.nodes += more.nodes
+            raw.links = (raw.links ?? raw.edges ?? []) + (more.links ?? more.edges ?? [])
+            raw.edges = nil
         }
 
         let nodes = raw.nodes.map { r -> Node in
@@ -82,6 +91,8 @@ public enum GraphLoader {
 
     static func kind(of r: RawNode) -> Node.Kind {
         if r.type == "external" || r.external == true { return .external }
+        if r.type == "route" { return .route }
+        if r.type == "table" { return .table }
         if r.fileType == "concept" || r.fileType == "rationale" || r.fileType == "document" || r.fileType == "paper" {
             return .document
         }
@@ -99,9 +110,9 @@ public enum GraphLoader {
     // MARK: - Wire format
 
     struct RawGraph: Decodable {
-        let nodes: [RawNode]
-        let links: [RawEdge]?
-        let edges: [RawEdge]?
+        var nodes: [RawNode]
+        var links: [RawEdge]?
+        var edges: [RawEdge]?
         let graph: RawMeta?
         let builtAtCommit: String?
 

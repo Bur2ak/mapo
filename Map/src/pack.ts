@@ -260,7 +260,7 @@ function buildSymbols() {
   const byOwner = new Map<number, number[]>();
   for (let i = 0; i < n.id.length; i++) {
     const k = n.kind[i];
-    const wanted = k === Kind.Function || k === Kind.Method || k === Kind.Type || (detail === 2 && k === Kind.Symbol);
+    const wanted = k === Kind.Function || k === Kind.Method || k === Kind.Type || k === Kind.Route || k === Kind.Table || (detail === 2 && k === Kind.Symbol);
     const owner = n.owner?.[i] ?? -1;
     if (!wanted || owner < 0) continue;
     let list = byOwner.get(owner);
@@ -1424,6 +1424,8 @@ function kindLabel(k: Kind): string {
     case Kind.Method: return "Metot";
     case Kind.Type: return "Tip";
     case Kind.Document: return "Belge";
+    case Kind.Route: return "HTTP uç noktası";
+    case Kind.Table: return "Tablo";
     default: return "Sembol";
   }
 }
