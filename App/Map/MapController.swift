@@ -179,6 +179,7 @@ final class MapController: NSObject {
                 pending.insert(("mapoMap.load(url, keep, sel)", ["url": MapoSchemeHandler.payloadURL(id), "keep": false, "sel": NSNull()]), at: 0)
             }
             // Re-apply view options, then queued commands in order.
+            call("mapoMap.setLocale(l)", ["l": Bundle.main.preferredLocalizations.first ?? "tr"])
             call("mapoMap.setDetail(v)", ["v": detail.rawValue])
             call("mapoMap.setColorMode(v)", ["v": colorMode.rawValue])
             call("mapoMap.setHideTests(v)", ["v": hideTests])

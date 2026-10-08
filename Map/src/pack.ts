@@ -53,6 +53,30 @@ interface Circle {
 
 const canvas = document.getElementById("pack") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
+// UI language, set by the app (mapoMap.setLocale) to match its own.
+const STRINGS = {
+  tr: {
+    loading: "Harita yükleniyor…", loadFailed: "Harita verisi alınamadı", empty: "Bu projede gösterilecek dosya yok",
+    project: "Tüm proje", all: "Tümü", uses: "Kullandıkları", usedBy: "Kullananlar", noLinks: "Bağlantısı yok",
+    day: "Son 24 saat", week: "Bu hafta", month: "Bu ay", older: "Daha eski",
+    veryDense: "Çok yoğun", dense: "Yoğun", medium: "Orta", sparse: "Az ya da yok",
+    file: "Dosya", function: "Fonksiyon", method: "Metot", type: "Tip", document: "Belge", route: "HTTP uç noktası", table: "Tablo", symbol: "Sembol",
+    lines: "satır", links: "bağlantı", other: "Diğer",
+  },
+  en: {
+    loading: "Loading map…", loadFailed: "Couldn't load the map data", empty: "Nothing to show in this project",
+    project: "Whole project", all: "All", uses: "Uses", usedBy: "Used by", noLinks: "No links",
+    day: "Last 24 hours", week: "This week", month: "This month", older: "Older",
+    veryDense: "Very dense", dense: "Dense", medium: "Medium", sparse: "Little or none",
+    file: "File", function: "Function", method: "Method", type: "Type", document: "Document", route: "HTTP endpoint", table: "Table", symbol: "Symbol",
+    lines: "lines", links: "links", other: "Other",
+  },
+};
+type Lang = keyof typeof STRINGS;
+let lang: Lang = "tr";
+const t = (k: keyof (typeof STRINGS)["tr"]) => STRINGS[lang][k];
+const num = (n: number) => n.toLocaleString(lang);
+
 const tip = document.getElementById("tip")!;
 const crumbs = document.getElementById("crumbs")!;
 const legend = document.getElementById("legend")!;
@@ -110,13 +134,13 @@ const duration = () => (motionQuery.matches ? 0 : 420);
 // Loading & layout
 
 async function load(url: string, keepView = false, sel: string | null = null) {
-  setStatus("Harita yükleniyor…");
+  setStatus(t("loading"));
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Harita verisi alınamadı (${res.status})`);
+  if (!res.ok) throw new Error(`${t("loadFailed")} (${res.status})`);
   payload = (await res.json()) as Payload;
   const view = keepView && camReady ? { ...cam } : null;
   build();
-  setStatus(root && root.children.length ? null : "Bu projede gösterilecek dosya yok");
+  setStatus(root && root.children.length ? null : t("empty"));
   post({ type: "loaded", nodes: payload.nodes.id.length, edges: payload.edges.s.length });
   if (view) Object.assign(cam, view);
   else fitCircle(root!, 0.94, false);
@@ -238,7 +262,7 @@ function build() {
     return c;
   };
   root = convert(laid, null);
-  root.name = "Tüm proje";
+  root.name = t("project");
   const seen = new Map<string, number>();
   forEachCircle(root, (c) => c.kind === "file" && seen.set(c.name, (seen.get(c.name) ?? 0) + 1));
   ambiguous = new Set([...seen].filter(([, n]) => n > 1).map(([name]) => name));
@@ -343,10 +367,10 @@ function assignColors() {
   let groups: GroupInfo[];
   if (colorMode === "recency") {
     const buckets = [
-      { id: -10, name: "Son 24 saat", color: theme.dark ? "#F2685A" : "#D9483B", max: 1, count: 0 },
-      { id: -11, name: "Bu hafta", color: theme.dark ? "#F0AE47" : "#C9821E", max: 7, count: 0 },
-      { id: -12, name: "Bu ay", color: theme.dark ? "#4FB8A8" : "#2B8A7C", max: 30, count: 0 },
-      { id: -13, name: "Daha eski", color: theme.dark ? "#5C6577" : "#A3AAB7", max: Infinity, count: 0 },
+      { id: -10, name: t("day"), color: theme.dark ? "#F2685A" : "#D9483B", max: 1, count: 0 },
+      { id: -11, name: t("week"), color: theme.dark ? "#F0AE47" : "#C9821E", max: 7, count: 0 },
+      { id: -12, name: t("month"), color: theme.dark ? "#4FB8A8" : "#2B8A7C", max: 30, count: 0 },
+      { id: -13, name: t("older"), color: theme.dark ? "#5C6577" : "#A3AAB7", max: Infinity, count: 0 },
     ];
     forEachCircle(root, (c) => {
       if (c.kind !== "file") return;
@@ -365,10 +389,10 @@ function assignColors() {
     const q = (t: number) => values[Math.min(values.length - 1, Math.floor(t * values.length))] ?? 0;
     const cuts = [q(0.5), q(0.8), q(0.95)];
     const buckets = [
-      { id: -20, name: "Çok yoğun", color: strong, count: 0 },
-      { id: -21, name: "Yoğun", color: mix(strong, neutral, 0.35), count: 0 },
-      { id: -22, name: "Orta", color: mix(strong, neutral, 0.65), count: 0 },
-      { id: -23, name: "Az ya da yok", color: neutral, count: 0 },
+      { id: -20, name: t("veryDense"), color: strong, count: 0 },
+      { id: -21, name: t("dense"), color: mix(strong, neutral, 0.35), count: 0 },
+      { id: -22, name: t("medium"), color: mix(strong, neutral, 0.65), count: 0 },
+      { id: -23, name: t("sparse"), color: neutral, count: 0 },
     ];
     for (const f of files) {
       const v = weight.get(f.idx) ?? 0;
@@ -653,13 +677,13 @@ function updateLegend() {
     dot.textContent = arrow;
     el.append(dot, `${text} `);
     const b = document.createElement("b");
-    b.textContent = n.toLocaleString("tr");
+    b.textContent = num(n);
     el.append(b);
     return el;
   };
-  if (out) legend.append(row(theme.accent, "Kullandıkları", out, "→"));
-  if (inn) legend.append(row(inColor, "Kullananlar", inn, "←"));
-  if (!out && !inn) legend.append("Bağlantısı yok");
+  if (out) legend.append(row(theme.accent, t("uses"), out, "→"));
+  if (inn) legend.append(row(inColor, t("usedBy"), inn, "←"));
+  if (!out && !inn) legend.append(t("noLinks"));
 }
 
 /** Inside a folder, everything around it steps back so the edges of the
@@ -818,7 +842,7 @@ function drawLinks() {
           p.x = sx + ux * minD;
           p.y = sy + uy * minD;
         }
-        badges.push({ x: p.x, y: p.y, text: l.count.toLocaleString("tr"), color: l.out ? outColor : inColor });
+        badges.push({ x: p.x, y: p.y, text: num(l.count), color: l.out ? outColor : inColor });
       }
     }
   }
@@ -1220,7 +1244,7 @@ function updateCrumbs() {
   chain.forEach((c, i) => {
     if (i) crumbs.append(sep());
     const b = document.createElement("button");
-    b.textContent = c.kind === "root" ? "Tüm proje" : c.name;
+    b.textContent = c.kind === "root" ? t("project") : c.name;
     b.lang = "en";
     b.onclick = () => zoomInto(c);
     crumbs.append(b);
@@ -1395,19 +1419,19 @@ addEventListener("keydown", (e) => {
 function showTip(c: Circle, x: number, y: number) {
   const n = payload!.nodes;
   const lines = c.kind === "file" ? n.lines?.[c.idx] ?? 0 : 0;
-  const kindName = c.kind === "file" ? "Dosya" : kindLabel(n.kind[c.idx]);
+  const kindName = c.kind === "file" ? t("file") : kindLabel(n.kind[c.idx]);
   const where = c.kind === "file" ? c.path.split("/").slice(0, -1).join("/") || "/" : c.parent!.path;
   tip.replaceChildren();
-  const t = document.createElement("b");
-  t.textContent = c.name;
+  const title = document.createElement("b");
+  title.textContent = c.name;
   const m = document.createElement("span");
   const links = n.degree[c.idx] ?? 0;
-  m.textContent = [kindName, lines ? `${lines.toLocaleString("tr")} satır` : "", links ? `${links.toLocaleString("tr")} bağlantı` : ""]
+  m.textContent = [kindName, lines ? `${num(lines)} ${t("lines")}` : "", links ? `${num(links)} ${t("links")}` : ""]
     .filter(Boolean)
     .join(" · ");
   const p = document.createElement("small");
   p.textContent = where;
-  tip.append(t, m, p);
+  tip.append(title, m, p);
   tip.hidden = false;
   const tw = tip.offsetWidth, th = tip.offsetHeight;
   const left = x + 16 + tw > W ? x - tw - 12 : x + 16;
@@ -1420,13 +1444,13 @@ function hideTip() {
 
 function kindLabel(k: Kind): string {
   switch (k) {
-    case Kind.Function: return "Fonksiyon";
-    case Kind.Method: return "Metot";
-    case Kind.Type: return "Tip";
-    case Kind.Document: return "Belge";
-    case Kind.Route: return "HTTP uç noktası";
-    case Kind.Table: return "Tablo";
-    default: return "Sembol";
+    case Kind.Function: return t("function");
+    case Kind.Method: return t("method");
+    case Kind.Type: return t("type");
+    case Kind.Document: return t("document");
+    case Kind.Route: return t("route");
+    case Kind.Table: return t("table");
+    default: return t("symbol");
   }
 }
 
@@ -1589,6 +1613,16 @@ const api = {
       if ((c.kind === "dir" || c.kind === "root") && c.group === gid && (!best || c.depth < best.depth)) best = c;
     });
     if (best) zoomInto(best);
+  },
+  setLocale: (l: string) => {
+    const next: Lang = l.toLowerCase().startsWith("tr") ? "tr" : "en";
+    if (next === lang) return;
+    lang = next;
+    document.documentElement.lang = lang;
+    if (root) root.name = t("project");
+    legendKey = "";
+    if (payload && root) assignColors();
+    requestDraw();
   },
   fit: () => {
     zoomDir = null;

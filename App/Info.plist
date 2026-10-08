@@ -3,6 +3,12 @@
 <plist version="1.0">
 <dict>
 	<!-- Sparkle: güncellemeler GitHub Releases'tan, EdDSA imzalı (PLAN §3.7). -->
+	<!-- Arayüz dilleri: Türkçe (kaynak) ve İngilizce (Localizable.xcstrings). -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>tr</string>
+		<string>en</string>
+	</array>
 	<key>SUFeedURL</key>
 	<string>https://github.com/Bur2ak/mapo/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>

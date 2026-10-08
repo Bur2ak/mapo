@@ -1,0 +1,2919 @@
+{
+  "sourceLanguage": "tr",
+  "strings": {
+    " / ": {
+      "shouldTranslate": false
+    },
+    "%@ ile aç (⌘↩)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open with %@ (⌘↩)"
+          }
+        }
+      }
+    },
+    "%@ içinde Mapo tanımadığım bir biçimde yazılmış. Dosyaya dokunmadım; o satırları elle kaldırıp tekrar dene.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mapo is declared in %@ in a form Mapo doesn't recognize. The file was left untouched; remove those lines by hand and try again."
+          }
+        }
+      }
+    },
+    "%@ — %@": {
+      "shouldTranslate": false
+    },
+    "%lld": {
+      "shouldTranslate": false
+    },
+    "%lld adımda ulaşıyor.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Reaches it in %lld step."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Reaches it in %lld steps."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld bağlantı": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld link"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld links"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld commit geride": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld commit behind"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld commits behind"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld dosya": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld file"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld files"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld dosya + %lld fonksiyon ve tip · adlar yakınlaştıkça görünür": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld files + %lld functions and types · names appear as you zoom in"
+          }
+        }
+      }
+    },
+    "%lld dosya · %lld fonksiyon · %lld bağlantı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld files · %lld functions · %lld links"
+          }
+        }
+      }
+    },
+    "%lld tane daha": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld more"
+          }
+        }
+      }
+    },
+    "%lld öğe · sabitler ve değişkenler dahil": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld items · including constants and variables"
+          }
+        }
+      }
+    },
+    "%lld. derece": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Degree %lld"
+          }
+        }
+      }
+    },
+    "@%@": {
+      "shouldTranslate": false
+    },
+    "@%@ olarak bağlı · token Anahtar Zinciri'nde": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected as @%@ · token in Keychain"
+          }
+        }
+      }
+    },
+    "Ajanına haritayı ver": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give your agent the map"
+          }
+        }
+      }
+    },
+    "Analiz motoru": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis engine"
+          }
+        }
+      }
+    },
+    "Analiz motoru bulunamadı.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis engine not found."
+          }
+        }
+      }
+    },
+    "Analiz motoru bulunamadı. Bu geliştirme sürümü sistemde kurulu graphify'ı kullanıyor:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis engine not found. This development build uses graphify installed on the system:"
+          }
+        }
+      }
+    },
+    "Analiz motoru hata verdi (%@, kod %d).\n%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The analysis engine failed (%@, code %d).\n%@"
+          }
+        }
+      }
+    },
+    "Analiz uzun süre ilerlemedi ve durduruldu (%@). Proje klasöründe yalnız iCloud'da duran dosyalar olabilir; indirip tekrar dene.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis made no progress for a long time and was stopped (%@). The project folder may contain files that live only in iCloud; download them and try again."
+          }
+        }
+      }
+    },
+    "Ara": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "Ara (⌘K)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search (⌘K)"
+          }
+        }
+      }
+    },
+    "Ara…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search…"
+          }
+        }
+      }
+    },
+    "Atla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        }
+      }
+    },
+    "Attığı istekler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requests"
+          }
+        }
+      }
+    },
+    "Ayrıntı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detail"
+          }
+        }
+      }
+    },
+    "Açık kaynak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open source"
+          }
+        }
+      }
+    },
+    "Ağ görünümü (eski)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Network view (old)"
+          }
+        }
+      }
+    },
+    "Bağla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
+          }
+        }
+      }
+    },
+    "Bağladıktan sonra ajanı yeniden başlat.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart the agent after connecting."
+          }
+        }
+      }
+    },
+    "Bağlanan ajan haritayı sorgulayabilir: \"bunu kim çağırıyor\", \"bu dosya neye bağlı\", \"bu değişirse ne etkilenir\". Salt okunur; kod hiçbir yere gönderilmez.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A connected agent can ask the map \"who calls this\", \"what does this file depend on\", \"what's affected if this changes\". Read-only; your code is never sent anywhere."
+          }
+        }
+      }
+    },
+    "Bağlantı sayısı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number of links"
+          }
+        }
+      }
+    },
+    "Bağlantı yoğunluğu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link density"
+          }
+        }
+      }
+    },
+    "Bağlantı yoğunluğuna göre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By link density"
+          }
+        }
+      }
+    },
+    "Bağlantıları gör": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See the connections"
+          }
+        }
+      }
+    },
+    "Bağlantıyı Kes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
+          }
+        }
+      }
+    },
+    "Bağlan…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect…"
+          }
+        }
+      }
+    },
+    "Bağlı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        }
+      }
+    },
+    "Bağlı değil": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        }
+      }
+    },
+    "Başka bir Mapo kopyasına bağlı: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected to another copy of Mapo: %@"
+          }
+        }
+      }
+    },
+    "Başlıyor…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting…"
+          }
+        }
+      }
+    },
+    "Belge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document"
+          }
+        }
+      }
+    },
+    "Bir daha gösterme": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't show again"
+          }
+        }
+      }
+    },
+    "Bir dosyaya ya da fonksiyona tıkla: turuncu oklar kullandıklarını, mavi oklar onu kullananları gösterir. Klasöre tıklayınca içine girersin. \"Yol bul\" iki parça arasındaki zinciri, \"Etki alanı\" bir değişikliğin nereleri etkileyeceğini gösterir.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click a file or function: orange arrows show what it uses, blue arrows show what uses it. Click a folder to go inside. \"Find path\" shows the chain between two pieces, \"Impact\" shows what a change would affect."
+          }
+        }
+      }
+    },
+    "Bir projenin haritasını çıkar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map a project"
+          }
+        }
+      }
+    },
+    "Bir sorun oldu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong"
+          }
+        }
+      }
+    },
+    "Bu Mapo sürümünde örnek proje yok.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This version of Mapo doesn't include the sample project."
+          }
+        }
+      }
+    },
+    "Bu bir klasör değil: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This isn't a folder: %@"
+          }
+        }
+      }
+    },
+    "Bu değişirse %lld yer etkilenebilir.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "If this changes, %lld place may be affected."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "If this changes, %lld places may be affected."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Bu değişirse nelerin etkilenebileceğini haritada göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show on the map what may be affected if this changes"
+          }
+        }
+      }
+    },
+    "Bu iki dosya arasındaki çağrı ve içe aktarma sayısı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number of calls and imports between these two files"
+          }
+        }
+      }
+    },
+    "Bu ikisi arasında bağlantı zinciri yok: biri diğerini hiçbir yoldan kullanmıyor.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There's no chain between these two: neither uses the other in any way."
+          }
+        }
+      }
+    },
+    "Bu konumda zaten bir klasör var: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There's already a folder at this location: %@"
+          }
+        }
+      }
+    },
+    "Bu proje zaten kütüphanede.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This project is already in the library."
+          }
+        }
+      }
+    },
+    "Bu projenin henüz haritası yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This project has no map yet"
+          }
+        }
+      }
+    },
+    "Buradan başka bir dosya ya da fonksiyona giden bağlantı zincirini göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the chain of links from here to another file or function"
+          }
+        }
+      }
+    },
+    "Bölgeler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Areas"
+          }
+        }
+      }
+    },
+    "Claude Code, Codex, Cursor ya da Claude Desktop'ı Ayarlar › Entegrasyonlar'dan tek tıkla bağla. Ajanın \"bunu kim çağırıyor\", \"bu değişirse ne bozulur\" sorularını haritaya sorar.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Claude Code, Codex, Cursor or Claude Desktop in one click from Settings › Integrations. Your agent then asks the map \"who calls this\" and \"what breaks if this changes\"."
+          }
+        }
+      }
+    },
+    "Daha az göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show less"
+          }
+        }
+      }
+    },
+    "Daire haritası": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circle map"
+          }
+        }
+      }
+    },
+    "Denetçi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inspector"
+          }
+        }
+      }
+    },
+    "Denetçiyi Gizle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Inspector"
+          }
+        }
+      }
+    },
+    "Denetçiyi Göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Inspector"
+          }
+        }
+      }
+    },
+    "Denetçiyi göster/gizle (⌥⌘0)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show/hide inspector (⌥⌘0)"
+          }
+        }
+      }
+    },
+    "Depo indirilemedi: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't download the repository: %@"
+          }
+        }
+      }
+    },
+    "Devam": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "Diğer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        }
+      }
+    },
+    "Diğer dosyalarla en çok bağı olanlar: değişince en çok yeri etkileyenler.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The files with the most links to others: changing them affects the most."
+          }
+        }
+      }
+    },
+    "Dosya": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        }
+      }
+    },
+    "Dosyalar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files"
+          }
+        }
+      }
+    },
+    "Dosyalar taranıyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning files"
+          }
+        }
+      }
+    },
+    "Dosyalar: yalnız dosyalar · Kod: fonksiyon ve tipler · Tümü: sabitler ve dış paketler dahil (⌘1 ⌘2 ⌘3)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files: files only · Code: functions and types · All: including constants and external packages (⌘1 ⌘2 ⌘3)"
+          }
+        }
+      }
+    },
+    "Dosyaları şununla aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open files with"
+          }
+        }
+      }
+    },
+    "Doğrudan kullananlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direct dependents"
+          }
+        }
+      }
+    },
+    "Doğrudan ulaşmıyor; aralarındaki en kısa bağ %lld adım (yön gözetmeden).": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Doesn't reach it directly; the shortest link between them is %lld step (ignoring direction)."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Doesn't reach it directly; the shortest link between them is %lld steps (ignoring direction)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Dış bağımlılık": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External dependency"
+          }
+        }
+      }
+    },
+    "Editörde Aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Editor"
+          }
+        }
+      }
+    },
+    "Editörde aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in editor"
+          }
+        }
+      }
+    },
+    "Ekle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "Ekli": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added"
+          }
+        }
+      }
+    },
+    "Elle kurulum": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual setup"
+          }
+        }
+      }
+    },
+    "Entegrasyonlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integrations"
+          }
+        }
+      }
+    },
+    "Eski konum": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Old location"
+          }
+        }
+      }
+    },
+    "Etki Alanını Göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Impact"
+          }
+        }
+      }
+    },
+    "Etki alanı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impact"
+          }
+        }
+      }
+    },
+    "Etki alanı · %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impact · %lld"
+          }
+        }
+      }
+    },
+    "Eşleşen repo yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matching repositories"
+          }
+        }
+      }
+    },
+    "Finder'da Göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Finder"
+          }
+        }
+      }
+    },
+    "Finder'da göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Finder"
+          }
+        }
+      }
+    },
+    "Fonksiyon": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Function"
+          }
+        }
+      }
+    },
+    "Geliştirme sürümünde kapalı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off in development builds"
+          }
+        }
+      }
+    },
+    "Genel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "GitHub": {
+      "shouldTranslate": false
+    },
+    "GitHub beklenmeyen bir yanıt verdi: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub sent an unexpected response: %@"
+          }
+        }
+      }
+    },
+    "GitHub hesabını bağla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect your GitHub account"
+          }
+        }
+      }
+    },
+    "GitHub ile Bağlan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect with GitHub"
+          }
+        }
+      }
+    },
+    "GitHub isteği başarısız oldu (HTTP %lld).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The GitHub request failed (HTTP %lld)."
+          }
+        }
+      }
+    },
+    "GitHub oturumunun süresi doldu. Yeniden bağlan.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your GitHub session expired. Connect again."
+          }
+        }
+      }
+    },
+    "GitHub'a ulaşılamadı: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't reach GitHub: %@"
+          }
+        }
+      }
+    },
+    "GitHub'da Aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open on GitHub"
+          }
+        }
+      }
+    },
+    "GitHub'da bu kodu gir": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter this code on GitHub"
+          }
+        }
+      }
+    },
+    "GitHub'da izin verilmedi.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access was denied on GitHub."
+          }
+        }
+      }
+    },
+    "GitHub'dan Ekle…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add from GitHub…"
+          }
+        }
+      }
+    },
+    "Gizlilik": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy"
+          }
+        }
+      }
+    },
+    "Görünüm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
+    "Güncel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to date"
+          }
+        }
+      }
+    },
+    "Güncelle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update"
+          }
+        }
+      }
+    },
+    "Güncellemeler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates"
+          }
+        }
+      }
+    },
+    "Güncellemeleri Denetle…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates…"
+          }
+        }
+      }
+    },
+    "Güncellemeleri kendiliğinden denetle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for updates automatically"
+          }
+        }
+      }
+    },
+    "Güncellik bilinmiyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freshness unknown"
+          }
+        }
+      }
+    },
+    "Günlükler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs"
+          }
+        }
+      }
+    },
+    "HTTP uç noktası": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP endpoint"
+          }
+        }
+      }
+    },
+    "Hakkında": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        }
+      }
+    },
+    "Harita": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map"
+          }
+        }
+      }
+    },
+    "Harita %lld commit geride": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Map is %lld commit behind"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Map is %lld commits behind"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Harita dosyası bozuk. Projeyi yeniden indeksle.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The map file is damaged. Rebuild the project's map."
+          }
+        }
+      }
+    },
+    "Harita dosyası okunamadı: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read the map file: %@"
+          }
+        }
+      }
+    },
+    "Harita güncel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map is up to date"
+          }
+        }
+      }
+    },
+    "Harita güncel değil, güncelle (⌘R)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map is out of date, update (⌘R)"
+          }
+        }
+      }
+    },
+    "Harita güncelleniyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map is updating"
+          }
+        }
+      }
+    },
+    "Harita güncelleniyor…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating map…"
+          }
+        }
+      }
+    },
+    "Harita hazırlanıyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing the map"
+          }
+        }
+      }
+    },
+    "Harita oluşturulamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't build the map"
+          }
+        }
+      }
+    },
+    "Harita: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map: %@"
+          }
+        }
+      }
+    },
+    "Haritada bir dosyaya tıkla ya da ⌘K ile ara.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click a file on the map or search with ⌘K."
+          }
+        }
+      }
+    },
+    "Haritada bu bölgeye git": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to this area on the map"
+          }
+        }
+      }
+    },
+    "Haritada bul": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find on Map"
+          }
+        }
+      }
+    },
+    "Haritada göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show on map"
+          }
+        }
+      }
+    },
+    "Haritaları kendiliğinden güncelle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update maps automatically"
+          }
+        }
+      }
+    },
+    "Haritayı Güncelle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Map"
+          }
+        }
+      }
+    },
+    "Haritayı güncelle (⌘R)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update map (⌘R)"
+          }
+        }
+      }
+    },
+    "Haritayı sığdır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit map"
+          }
+        }
+      }
+    },
+    "Haritayı Çıkar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build Map"
+          }
+        }
+      }
+    },
+    "Hazırlanıyor %%%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing %%%@"
+          }
+        }
+      }
+    },
+    "Hedef dosya ya da fonksiyon ara": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search for the target file or function"
+          }
+        }
+      }
+    },
+    "Henüz haritası yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No map yet"
+          }
+        }
+      }
+    },
+    "Henüz proje yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No projects yet"
+          }
+        }
+      }
+    },
+    "Hepsini Güncelle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update All"
+          }
+        }
+      }
+    },
+    "Hesaplar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        }
+      }
+    },
+    "Hiç repo bulunamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No repositories found"
+          }
+        }
+      }
+    },
+    "Hiçbir yer buna bağlı değil; değişmesi başka bir şeyi bozmaz.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing depends on this; changing it won't break anything else."
+          }
+        }
+      }
+    },
+    "Kaldır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "Kapat": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
+    "Kaydır: yakınlaştır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scroll: zoom"
+          }
+        }
+      }
+    },
+    "Kendi Projemi Ekle…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add My Own Project…"
+          }
+        }
+      }
+    },
+    "Kendiliğinden Güncelle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Automatically"
+          }
+        }
+      }
+    },
+    "Klasör Ekle…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Folder…"
+          }
+        }
+      }
+    },
+    "Klasör Seç…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Folder…"
+          }
+        }
+      }
+    },
+    "Klasör ya da GitHub reposu ekle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a folder or GitHub repository"
+          }
+        }
+      }
+    },
+    "Klasöre göre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By folder"
+          }
+        }
+      }
+    },
+    "Klasöre tıkla: içine gir": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click a folder: go inside"
+          }
+        }
+      }
+    },
+    "Kod": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code"
+          }
+        }
+      }
+    },
+    "Kod değiştiğinde, commit atıldığında ya da dal değiştiğinde haritası olan projeler arka planda yeniden analiz edilir.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When code changes, a commit lands or the branch switches, mapped projects are re-analyzed in the background."
+          }
+        }
+      }
+    },
+    "Kod kopyalandı · GitHub açıldı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code copied · GitHub opened"
+          }
+        }
+      }
+    },
+    "Kod okunuyor · %lld/%lld dosya": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading code · %lld/%lld files"
+          }
+        }
+      }
+    },
+    "Kod yalnızca bu Mac'te analiz edilir. Büyük projelerde bir dakika sürebilir.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code is analyzed only on this Mac. Large projects can take a minute."
+          }
+        }
+      }
+    },
+    "Kodlama ajanları": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coding agents"
+          }
+        }
+      }
+    },
+    "Kodu Kopyala ve GitHub'ı Aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Code and Open GitHub"
+          }
+        }
+      }
+    },
+    "Kodun bu Mac'ten çıkmaz. Mapo analiz verisi göndermez, telemetri toplamaz.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your code never leaves this Mac. Mapo sends no analytics and collects no telemetry."
+          }
+        }
+      }
+    },
+    "Kodun süresi doldu. Yeniden dene.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code expired. Try again."
+          }
+        }
+      }
+    },
+    "Kodunun haritası": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A map of your code"
+          }
+        }
+      }
+    },
+    "Komut": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command"
+          }
+        }
+      }
+    },
+    "Kullanan dosyalar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files that use it"
+          }
+        }
+      }
+    },
+    "Kullandığı dosyalar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files it uses"
+          }
+        }
+      }
+    },
+    "Kurulu görünmüyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doesn't seem to be installed"
+          }
+        }
+      }
+    },
+    "Kütüphaneden Kaldır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from Library"
+          }
+        }
+      }
+    },
+    "Mapo": {
+      "shouldTranslate": false
+    },
+    "Mapo bir projeyi haritaya çevirir: her halka bir klasör, içindeki her daire bir dosya. Daire ne kadar büyükse dosya o kadar uzun. Kodun bilgisayarından çıkmaz.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mapo turns a project into a map: every ring is a folder and every circle in it a file. The bigger the circle, the longer the file. Your code never leaves your Mac."
+          }
+        }
+      }
+    },
+    "Mapo disk görüntüsünden ya da geçici bir konumdan çalışıyor. Önce Uygulamalar klasörüne taşı, sonra bağla.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mapo is running from a disk image or a temporary location. Move it to the Applications folder first, then connect."
+          }
+        }
+      }
+    },
+    "Mapo yalnız repoları okumak ve indirmek için izin ister.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mapo only asks for permission to read and download repositories."
+          }
+        }
+      }
+    },
+    "Mapo'ya Hoş Geldin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to Mapo"
+          }
+        }
+      }
+    },
+    "Mapo'yu Aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Mapo"
+          }
+        }
+      }
+    },
+    "Menü çubuğunda göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in menu bar"
+          }
+        }
+      }
+    },
+    "Merkez dosyalar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hub files"
+          }
+        }
+      }
+    },
+    "Metot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Method"
+          }
+        }
+      }
+    },
+    "Modüller bulunuyor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding modules"
+          }
+        }
+      }
+    },
+    "Okuduğu tablolar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tables it reads"
+          }
+        }
+      }
+    },
+    "Okuyanlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read by"
+          }
+        }
+      }
+    },
+    "Onay bekleniyor…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for approval…"
+          }
+        }
+      }
+    },
+    "Onayın bekleniyor…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for your approval…"
+          }
+        }
+      }
+    },
+    "Oturum açılınca başlat": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch at login"
+          }
+        }
+      }
+    },
+    "Proje Ekle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Project"
+          }
+        }
+      }
+    },
+    "Proje klasörü seç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a project folder"
+          }
+        }
+      }
+    },
+    "Proje klasörünü bu pencereye bırak ya da seç. Kodun bilgisayarından çıkmaz.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop a project folder on this window or choose one. Your code never leaves your Mac."
+          }
+        }
+      }
+    },
+    "Projeler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projects"
+          }
+        }
+      }
+    },
+    "Projeye Git": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Project"
+          }
+        }
+      }
+    },
+    "Renk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        }
+      }
+    },
+    "Repo ara": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search repositories"
+          }
+        }
+      }
+    },
+    "Repoların listelenir, seçtiğin bu Mac'e indirilir ve haritası çıkarılır. Kodun hiçbir yere gönderilmez; şifren Mapo'ya girilmez.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your repositories are listed; the one you pick is downloaded to this Mac and mapped. Your code is never sent anywhere, and your password is never entered into Mapo."
+          }
+        }
+      }
+    },
+    "Sayfa %lld / %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %lld of %lld"
+          }
+        }
+      }
+    },
+    "Sembol": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Symbol"
+          }
+        }
+      }
+    },
+    "Sembol, dosya ya da yol ara": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search symbols, files or paths"
+          }
+        }
+      }
+    },
+    "Seçileni Editörde Aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Selection in Editor"
+          }
+        }
+      }
+    },
+    "Son 5 commit ve kaydedilmemiş değişiklikler.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last 5 commits and uncommitted changes."
+          }
+        }
+      }
+    },
+    "Son değişenler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recently changed"
+          }
+        }
+      }
+    },
+    "Son değişiklik": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last change"
+          }
+        }
+      }
+    },
+    "Son değişikliğe göre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By last change"
+          }
+        }
+      }
+    },
+    "Son güncelleme başarısız": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last update failed"
+          }
+        }
+      }
+    },
+    "Son güncelleme başarısız: %@\nTekrar denemek için tıkla (⌘R).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last update failed: %@\nClick to try again (⌘R)."
+          }
+        }
+      }
+    },
+    "Sonuç yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No results"
+          }
+        }
+      }
+    },
+    "Sürükle: kaydır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag: pan"
+          }
+        }
+      }
+    },
+    "Sürüm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "Sığdır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit"
+          }
+        }
+      }
+    },
+    "Sığdır (⌘0)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit (⌘0)"
+          }
+        }
+      }
+    },
+    "Tablo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Table"
+          }
+        }
+      }
+    },
+    "Tanımladığı tablolar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tables it defines"
+          }
+        }
+      }
+    },
+    "Tanımlandığı yer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Defined in"
+          }
+        }
+      }
+    },
+    "Tekrar Dene": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        }
+      }
+    },
+    "Testleri gizle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide tests"
+          }
+        }
+      }
+    },
+    "Tip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type"
+          }
+        }
+      }
+    },
+    "Tümü": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "Uzaklaştır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom Out"
+          }
+        }
+      }
+    },
+    "Uzaklaştır (⌘−)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom out (⌘−)"
+          }
+        }
+      }
+    },
+    "Uç noktaları": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endpoints"
+          }
+        }
+      }
+    },
+    "Varsayılan uygulama": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default app"
+          }
+        }
+      }
+    },
+    "Vazgeç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Vurguyu Temizle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Highlight"
+          }
+        }
+      }
+    },
+    "Yakınlaştır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom In"
+          }
+        }
+      }
+    },
+    "Yakınlaştır (⌘+)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom in (⌘+)"
+          }
+        }
+      }
+    },
+    "Yapılandırma dosyası okunamadı: %@. Dosyaya dokunulmadı; elle düzeltip tekrar dene.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read the config file: %@. It was left untouched; fix it by hand and try again."
+          }
+        }
+      }
+    },
+    "Yapılandırma ve derleme dosyalarını göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show config and build files"
+          }
+        }
+      }
+    },
+    "Yazanlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Written by"
+          }
+        }
+      }
+    },
+    "Yazdığı tablolar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tables it writes"
+          }
+        }
+      }
+    },
+    "Yeniden yerleştir": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-layout"
+          }
+        }
+      }
+    },
+    "Yol": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Path"
+          }
+        }
+      }
+    },
+    "Yol Bul…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find Path…"
+          }
+        }
+      }
+    },
+    "Yol bul…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find path…"
+          }
+        }
+      }
+    },
+    "Yol · %lld adım": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Path · %lld step"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Path · %lld steps"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Yol:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Path:"
+          }
+        }
+      }
+    },
+    "bağlantı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "links"
+          }
+        }
+      }
+    },
+    "bağlı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "linked"
+          }
+        }
+      }
+    },
+    "bağlı (ters yön)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "linked (reverse)"
+          }
+        }
+      }
+    },
+    "dosya": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "files"
+          }
+        }
+      }
+    },
+    "fork": {
+      "shouldTranslate": false
+    },
+    "git durumu okunamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "couldn't read git status"
+          }
+        }
+      }
+    },
+    "git çıktısı okunamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "couldn't read git output"
+          }
+        }
+      }
+    },
+    "graphify (Apache-2.0 / MIT)": {
+      "shouldTranslate": false
+    },
+    "güncel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "up to date"
+          }
+        }
+      }
+    },
+    "güncellenemedi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "update failed"
+          }
+        }
+      }
+    },
+    "güncelleniyor…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "updating…"
+          }
+        }
+      }
+    },
+    "haritası yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no map"
+          }
+        }
+      }
+    },
+    "hızlı ileri alma yapılamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "couldn't fast-forward"
+          }
+        }
+      }
+    },
+    "istek atar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "requests"
+          }
+        }
+      }
+    },
+    "isteğini karşılar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "serves the request of"
+          }
+        }
+      }
+    },
+    "izlenen dal yok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no upstream branch"
+          }
+        }
+      }
+    },
+    "içe aktarır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imports"
+          }
+        }
+      }
+    },
+    "içerir": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "contains"
+          }
+        }
+      }
+    },
+    "içinde": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is inside"
+          }
+        }
+      }
+    },
+    "kaydedilmemiş değişiklikler var": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "there are uncommitted changes"
+          }
+        }
+      }
+    },
+    "kullanır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "uses"
+          }
+        }
+      }
+    },
+    "miras alır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "inherits from"
+          }
+        }
+      }
+    },
+    "okur": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reads"
+          }
+        }
+      }
+    },
+    "sırada": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "queued"
+          }
+        }
+      }
+    },
+    "tarafından içe aktarılır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is imported by"
+          }
+        }
+      }
+    },
+    "tarafından kullanılır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is used by"
+          }
+        }
+      }
+    },
+    "tarafından miras alınır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is inherited by"
+          }
+        }
+      }
+    },
+    "tarafından okunur": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is read by"
+          }
+        }
+      }
+    },
+    "tarafından yazılır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is written by"
+          }
+        }
+      }
+    },
+    "tarafından çağrılır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "is called by"
+          }
+        }
+      }
+    },
+    "uv tool install --python 3.12 graphifyy==0.9.79": {
+      "shouldTranslate": false
+    },
+    "uzak depoya ulaşılamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "couldn't reach the remote"
+          }
+        }
+      }
+    },
+    "yazar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "writes"
+          }
+        }
+      }
+    },
+    "yerel commit'ler var": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "there are local commits"
+          }
+        }
+      }
+    },
+    "Çağıranlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Callers"
+          }
+        }
+      }
+    },
+    "Çağırdıkları": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calls"
+          }
+        }
+      }
+    },
+    "Çift tıkla: editörde aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double-click: open in editor"
+          }
+        }
+      }
+    },
+    "Çıkış": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit"
+          }
+        }
+      }
+    },
+    "Önce örnek bir haritaya bak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look at a sample map first"
+          }
+        }
+      }
+    },
+    "Örnek Projeyi Aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Sample Project"
+          }
+        }
+      }
+    },
+    "Örnek Projeyle Başla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start with the Sample"
+          }
+        }
+      }
+    },
+    "Örnek proje bulunamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sample project not found"
+          }
+        }
+      }
+    },
+    "Örnek: Mapo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sample: Mapo"
+          }
+        }
+      }
+    },
+    "Üyeler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Members"
+          }
+        }
+      }
+    },
+    "Üçüncü Taraf Lisansları": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Third-Party Licenses"
+          }
+        }
+      }
+    },
+    "Üçüncü Taraf Lisansları…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Third-Party Licenses…"
+          }
+        }
+      }
+    },
+    "çağırır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "calls"
+          }
+        }
+      }
+    },
+    "İndir ve Haritasını Çıkar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download and Map"
+          }
+        }
+      }
+    },
+    "İndiriliyor %%%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading %%%@"
+          }
+        }
+      }
+    },
+    "İndiriliyor…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading…"
+          }
+        }
+      }
+    },
+    "İstek atanlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requested by"
+          }
+        }
+      }
+    },
+    "İçe aktaranlar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported by"
+          }
+        }
+      }
+    },
+    "İçe aktardıkları": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imports"
+          }
+        }
+      }
+    },
+    "İçindekiler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contents"
+          }
+        }
+      }
+    },
+    "Şimdi Denetle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Now"
+          }
+        }
+      }
+    },
+    "→ nereye?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ to where?"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

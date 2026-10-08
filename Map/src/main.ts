@@ -1448,6 +1448,8 @@ const api = {
     const cam = renderer?.getCamera();
     if (cam) cam.animate({ ratio: cam.ratio / factor }, { duration: duration() / 2 });
   },
+  /** The network view has no translated text of its own yet. */
+  setLocale: (_l: string) => {},
   relayout: () => {
     if (!payload) return;
     payload.positions = null;
