@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mapo'ın gömülü analiz motorunu hazırlar: bağımsız Python + graphify (sabit sürümler).
+# Mapo'nun gömülü analiz motorunu hazırlar: bağımsız Python + graphify (sabit sürümler).
 #
 #   bash scripts/build-engine.sh
 #

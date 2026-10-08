@@ -4,8 +4,8 @@
 //   swift scripts/make-icon.swift            → App/Resources/Assets.xcassets/AppIcon.appiconset
 //   swift scripts/make-icon.swift --preview out.png
 //
-// Koyu mürekkep zemin, üç küme halinde bağlı düğümler, bir düğümün etrafında
-// pusula sarısı seçim halkası. Çizim 1024 pt'lik tuvalde; macOS ızgarası
+// Koyu mürekkep zemin, haritadaki gibi iç içe daireler (klasör halkası, içinde
+// dosyalar), seçili dosyada pusula sarısı halka ve kullandığı bölgeye bir ok. Çizim 1024 pt'lik tuvalde; macOS ızgarası
 // gereği içerik 824 pt'lik yuvarlatılmış karede, kenarda 100 pt boşluk.
 
 import AppKit
@@ -19,33 +19,26 @@ func rgb(_ hex: UInt32, _ a: CGFloat = 1) -> CGColor {
     CGColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: a)
 }
 
-// Node layout in tile-unit space (0…1, y up). Three clusters, hand placed so
-// the composition reads at 16 px: big masses, few edges.
-struct N { let x: CGFloat; let y: CGFloat; let r: CGFloat; let c: UInt32 }
+// Circle-packing composition in tile-unit space (0…1, y up), the same
+// language as the map: folders are rings, files are discs inside them, the
+// selection wears the Pusula ring and one arrow shows what it uses. Hand
+// placed so it reads at 16 px: three masses, one accent.
+struct C { let x: CGFloat; let y: CGFloat; let r: CGFloat }
 let teal: UInt32 = 0x4FC1B3, violet: UInt32 = 0x9A8CF0, coral: UInt32 = 0xF07E6E
-let nodes: [N] = [
-    // cluster A (upper left, teal)
-    N(x: 0.30, y: 0.70, r: 0.070, c: teal),
-    N(x: 0.13, y: 0.50, r: 0.040, c: teal),
-    N(x: 0.45, y: 0.87, r: 0.036, c: teal),
-    N(x: 0.13, y: 0.81, r: 0.030, c: teal),
-    // cluster B (right, violet)
-    N(x: 0.72, y: 0.62, r: 0.062, c: violet),
-    N(x: 0.85, y: 0.76, r: 0.036, c: violet),
-    N(x: 0.86, y: 0.48, r: 0.034, c: violet),
-    // cluster C (bottom, coral)
-    N(x: 0.44, y: 0.30, r: 0.058, c: coral),
-    N(x: 0.28, y: 0.20, r: 0.034, c: coral),
-    N(x: 0.60, y: 0.17, r: 0.036, c: coral),
+let regions: [(C, UInt32, [C])] = [
+    (C(x: 0.38, y: 0.58, r: 0.31), teal, [
+        C(x: 0.30, y: 0.64, r: 0.105), C(x: 0.50, y: 0.73, r: 0.075), C(x: 0.58, y: 0.59, r: 0.055),
+        C(x: 0.24, y: 0.42, r: 0.075), C(x: 0.41, y: 0.35, r: 0.055),
+    ]),
+    (C(x: 0.78, y: 0.27, r: 0.16), violet, [
+        C(x: 0.74, y: 0.30, r: 0.070), C(x: 0.86, y: 0.22, r: 0.050), C(x: 0.80, y: 0.15, r: 0.035),
+    ]),
+    (C(x: 0.80, y: 0.74, r: 0.12), coral, [
+        C(x: 0.77, y: 0.76, r: 0.055), C(x: 0.86, y: 0.69, r: 0.040),
+    ]),
 ]
-let edges: [(Int, Int)] = [
-    (0, 1), (0, 2), (0, 3), (1, 3),
-    (4, 5), (4, 6),
-    (7, 8), (7, 9),
-    // bridges between clusters
-    (0, 4), (0, 7), (4, 7),
-]
-let selected = 0
+let selected = regions[0].2[0]
+let target = regions[1].0
 
 func draw(in ctx: CGContext, size: CGFloat) {
     let s = size / canvas
@@ -63,46 +56,64 @@ func draw(in ctx: CGContext, size: CGFloat) {
     ctx.saveGState()
     ctx.addPath(path)
     ctx.clip()
-    // Ink gradient, slightly lighter at top.
     let grad = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [rgb(0x1A1F2B), rgb(0x0B0D12)] as CFArray, locations: [0, 1])!
     ctx.drawLinearGradient(grad, start: CGPoint(x: 0, y: tile.maxY), end: CGPoint(x: 0, y: tile.minY), options: [])
 
-    // Faint survey grid.
-    ctx.setStrokeColor(rgb(0xC9D3E6, 0.06))
-    ctx.setLineWidth(2)
-    var g = tile.minX + 68.67
-    while g < tile.maxX { ctx.move(to: CGPoint(x: g, y: tile.minY)); ctx.addLine(to: CGPoint(x: g, y: tile.maxY)); g += 68.67 }
-    g = tile.minY + 68.67
-    while g < tile.maxY { ctx.move(to: CGPoint(x: tile.minX, y: g)); ctx.addLine(to: CGPoint(x: tile.maxX, y: g)); g += 68.67 }
-    ctx.strokePath()
+    // Faint dot grid, as on the map canvas.
+    ctx.setFillColor(rgb(0xC9D3E6, 0.07))
+    var gx = tile.minX + 34
+    while gx < tile.maxX {
+        var gy = tile.minY + 34
+        while gy < tile.maxY { ctx.fillEllipse(in: CGRect(x: gx - 3, y: gy - 3, width: 6, height: 6)); gy += 68.67 }
+        gx += 68.67
+    }
 
-    func p(_ n: N) -> CGPoint { CGPoint(x: tile.minX + n.x * tile.width, y: tile.minY + n.y * tile.height) }
+    func p(_ c: C) -> CGPoint { CGPoint(x: tile.minX + c.x * tile.width, y: tile.minY + c.y * tile.height) }
+    func r(_ c: C) -> CGFloat { c.r * tile.width }
+    func circle(_ c: C, grow: CGFloat = 0) -> CGRect {
+        let o = p(c), rr = r(c) + grow
+        return CGRect(x: o.x - rr, y: o.y - rr, width: 2 * rr, height: 2 * rr)
+    }
 
-    // Edges.
+    for (ring, color, files) in regions {
+        ctx.setFillColor(rgb(color, 0.13))
+        ctx.fillEllipse(in: circle(ring))
+        ctx.setStrokeColor(rgb(color, 0.55))
+        ctx.setLineWidth(7)
+        ctx.strokeEllipse(in: circle(ring, grow: -3.5))
+        ctx.setFillColor(rgb(color))
+        for f in files { ctx.fillEllipse(in: circle(f)) }
+    }
+
+    // Arrow: selection → the area it uses, curved like the map's links.
+    let a0 = p(selected), b0 = p(target)
+    let dx = b0.x - a0.x, dy = b0.y - a0.y, d = hypot(dx, dy)
+    let start = CGPoint(x: a0.x + dx / d * (r(selected) + 72), y: a0.y + dy / d * (r(selected) + 72))
+    let end = CGPoint(x: b0.x - dx / d * (r(target) + 6), y: b0.y - dy / d * (r(target) + 6))
+    let mid = CGPoint(x: (start.x + end.x) / 2 + dy * 0.16, y: (start.y + end.y) / 2 - dx * 0.16)
     ctx.setLineCap(.round)
-    for (a, b) in edges {
-        let bridge = nodes[a].c != nodes[b].c
-        ctx.setStrokeColor(bridge ? rgb(0xE6ECF7, 0.22) : rgb(nodes[a].c, 0.55))
-        ctx.setLineWidth(bridge ? 9 : 11)
-        ctx.move(to: p(nodes[a])); ctx.addLine(to: p(nodes[b]))
+    for (w, col) in [(CGFloat(34), rgb(0x0E1015, 0.75)), (CGFloat(18), rgb(0xF0AE47))] {
+        ctx.setStrokeColor(col)
+        ctx.setLineWidth(w)
+        ctx.move(to: start)
+        ctx.addQuadCurve(to: end, control: mid)
         ctx.strokePath()
     }
+    let ang = atan2(end.y - mid.y, end.x - mid.x), L: CGFloat = 62
+    ctx.setFillColor(rgb(0xF0AE47))
+    ctx.move(to: CGPoint(x: end.x + 10 * cos(ang), y: end.y + 10 * sin(ang)))
+    ctx.addLine(to: CGPoint(x: end.x - L * cos(ang - 0.5), y: end.y - L * sin(ang - 0.5)))
+    ctx.addLine(to: CGPoint(x: end.x - L * cos(ang + 0.5), y: end.y - L * sin(ang + 0.5)))
+    ctx.closePath()
+    ctx.fillPath()
 
-    // Nodes.
-    for n in nodes {
-        let r = n.r * tile.width
-        let c = p(n)
-        ctx.setFillColor(rgb(n.c))
-        ctx.fillEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
-    }
-
-    // Selection ring (Pusula).
-    let sel = nodes[selected]
-    let rr = sel.r * tile.width + 34
-    let sc = p(sel)
+    // Selection ring (Pusula), with a dark gap so it reads at small sizes.
+    ctx.setStrokeColor(rgb(0x0E1015))
+    ctx.setLineWidth(12)
+    ctx.strokeEllipse(in: circle(selected, grow: 10))
     ctx.setStrokeColor(rgb(0xF0AE47))
-    ctx.setLineWidth(16)
-    ctx.strokeEllipse(in: CGRect(x: sc.x - rr, y: sc.y - rr, width: 2 * rr, height: 2 * rr))
+    ctx.setLineWidth(15)
+    ctx.strokeEllipse(in: circle(selected, grow: 22))
 
     // Subtle top highlight on the tile edge.
     ctx.restoreGState()

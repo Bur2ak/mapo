@@ -212,6 +212,11 @@ private struct FileDependencySection: View {
                     Text("\(deps.count)")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.tertiary)
+                    Spacer(minLength: 8)
+                    Text("bağlantı")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .help("Bu iki dosya arasındaki çağrı ve içe aktarma sayısı")
                 }
                 ForEach(showAll ? deps : Array(deps.prefix(limit)), id: \.file) { d in
                     RelationRow(node: graph.nodes[d.file], trailing: "\(d.weight)")
@@ -339,7 +344,7 @@ private struct ProjectOverview: View {
                 }
 
                 if !workspace.map.groups.isEmpty {
-                    OverviewSection(title: legendTitle) {
+                    OverviewSection(title: legendTitle, unit: "dosya") {
                         ForEach(workspace.map.groups) { group in
                             LegendRow(group: group, unit: "dosya")
                         }
@@ -349,7 +354,7 @@ private struct ProjectOverview: View {
                 if let graph = workspace.graph {
                     let hubs = Self.hubs(in: graph, excluding: workspace.noisyFiles)
                     if !hubs.isEmpty {
-                        OverviewSection(title: "Merkez dosyalar", help: "Diğer dosyalarla en çok bağı olanlar: değişince en çok yeri etkileyenler.") {
+                        OverviewSection(title: "Merkez dosyalar", help: "Diğer dosyalarla en çok bağı olanlar: değişince en çok yeri etkileyenler.", unit: "bağlantı") {
                             ForEach(hubs, id: \.0) { p, score in
                                 FileRow(node: graph.nodes[p], trailing: "\(score)")
                             }
@@ -423,15 +428,25 @@ private struct ProjectOverview: View {
 private struct OverviewSection<Content: View>: View {
     let title: LocalizedStringKey
     var help: LocalizedStringKey? = nil
+    /// What the numbers on the right count.
+    var unit: LocalizedStringKey? = nil
     @ViewBuilder let content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .help(help.map { Text($0) } ?? Text(""))
-                .padding(.bottom, 2)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .help(help.map { Text($0) } ?? Text(""))
+                Spacer(minLength: 8)
+                if let unit {
+                    Text(unit)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.bottom, 2)
             content
         }
     }

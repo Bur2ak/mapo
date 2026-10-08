@@ -6,7 +6,7 @@ renk ve hareket yalnız haritada ve yalnız anlam taşıdığında.
 
 - **Kartografi, oyun değil.** Parlama, neon, parçacık efekti yok. İnce çizgiler, net etiketler, katmanlı derinlik.
 - **Durum biçimle anlatılır.** Güncellik bir rozet (renk + ikon + metin), indeksleme bir ilerleme halkası; yalnız renge dayanan durum yok.
-- **Hiç boş ekran yok.** İlk açılışta örnek proje (Mapo'ın kendisi) hazır; boş kütüphane bir eylem sunar.
+- **Hiç boş ekran yok.** İlk açılışta örnek proje (Mapo'nun kendisi) hazır; boş kütüphane bir eylem sunar.
 
 ## Renk
 

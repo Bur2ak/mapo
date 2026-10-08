@@ -55,6 +55,7 @@ const canvas = document.getElementById("pack") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 const tip = document.getElementById("tip")!;
 const crumbs = document.getElementById("crumbs")!;
+const legend = document.getElementById("legend")!;
 const status = document.getElementById("status")!;
 
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
@@ -604,11 +605,46 @@ function draw() {
   if (!root) return;
 
   drawShapes(root);
+  badges = [];
   drawLinks();
+  updateLegend();
   drawLabels();
+  for (const b of badges) badge(b.x, b.y, b.text, b.color);
   drawRings();
   drawVeil();
   updateCrumbs();
+}
+
+/** What the two colours mean, while a selection shows its links. */
+let legendKey = "";
+function updateLegend() {
+  const count = (as: Anchor[]) => {
+    const set = new Set<Circle>();
+    for (const a of as) for (const m of a.members) set.add(m);
+    return set.size;
+  };
+  const out = focus ? count(focus.uses) : 0, inn = focus ? count(focus.usedBy) : 0;
+  const key = focus && selected ? `${out}|${inn}|${theme.dark}` : "";
+  if (key === legendKey) return;
+  legendKey = key;
+  legend.hidden = !key;
+  if (!key) return;
+  const inColor = theme.dark ? "#7FB2FF" : "#2F6FD6";
+  legend.replaceChildren();
+  const row = (color: string, text: string, n: number, arrow: string) => {
+    const el = document.createElement("span");
+    const dot = document.createElement("i");
+    dot.style.background = color;
+    dot.textContent = arrow;
+    el.append(dot, `${text} `);
+    const b = document.createElement("b");
+    b.textContent = n.toLocaleString("tr");
+    el.append(b);
+    return el;
+  };
+  if (out) legend.append(row(theme.accent, "Kullandıkları", out, "→"));
+  if (inn) legend.append(row(inColor, "Kullananlar", inn, "←"));
+  if (!out && !inn) legend.append("Bağlantısı yok");
 }
 
 /** Inside a folder, everything around it steps back so the edges of the
@@ -710,19 +746,53 @@ function drawLinks() {
     }
     // Many partners in the selection's own folder: their rings say it all,
     // a fan of short curves would only hide them.
-    const siblings = links.filter((l) => visual(l.target).parent === self.parent);
-    const shown = siblings.length > 8 ? links.filter((l) => !siblings.includes(l)) : links;
+    // Counted per direction, so a few files it uses still get their arrows
+    // when dozens of neighbours use it.
+    const crowded = (out: boolean) => links.filter((l) => l.out === out && visual(l.target).parent === self.parent).length > 8;
+    const hideOut = crowded(true), hideIn = crowded(false);
+    // A neighbour right next to the selection is already marked by its ring;
+    // a stubby arrow on top of it only tangles.
+    const near = (l: { target: Circle }) => {
+      const t = visual(l.target);
+      return Math.hypot(toScreenX(t.x) - sx, toScreenY(t.y) - sy) - (t.r + self.r) * cam.k < 70;
+    };
+    const shown = links.filter((l) => !(visual(l.target).parent === self.parent && ((l.out ? hideOut : hideIn) || near(l))));
     const maxW = Math.max(1, ...shown.map((l) => l.weight));
     for (const l of shown) {
       if (visual(l.target) === self) continue;
-      const end = port(l.target, sx, sy);
+      let end = port(l.target, sx, sy);
+      // A big area with many members: aim into it, at where its members are,
+      // instead of a stub on the edge that may sit right next to the selection.
+      const t = l.target;
+      if (l.count > 1 && (t.kind === "dir" || t.kind === "root") && t.r * cam.k > 70) {
+        const a = [...focus.uses, ...focus.usedBy].find((x) => x.circle === t);
+        let mx = 0, my = 0, k = 0;
+        for (const m of a?.members ?? []) {
+          const v = visual(m);
+          mx += toScreenX(v.x);
+          my += toScreenY(v.y);
+          k++;
+        }
+        if (k) {
+          mx /= k;
+          my /= k;
+          // Off screen: stop at the edge of the view, on the way there.
+          const m = 28;
+          const fx = mx < m ? (m - sx) / (mx - sx) : mx > W - m ? (W - m - sx) / (mx - sx) : 1;
+          const fy = my < m ? (m - sy) / (my - sy) : my > H - m ? (H - m - sy) / (my - sy) : 1;
+          const f = Math.max(0, Math.min(1, fx, fy));
+          mx = sx + (mx - sx) * f;
+          my = sy + (my - sy) * f;
+          if (Math.hypot(mx - sx, my - sy) > self.r * cam.k + 60) end = { x: mx, y: my };
+        }
+      }
       const start = port(self, end.x, end.y);
       const width = 1.2 + 3.2 * Math.sqrt(l.weight / maxW);
       // Both directions to the same place bend apart.
       const bend = l.out ? 0.16 : -0.16;
       const from = l.out ? start : end, to = l.out ? end : start;
       curve(from, to, l.out ? outColor : inColor, width, bend);
-      if (l.count > 0) {
+      if (l.count > 1) {
         // On the curve, short of the arrowhead.
         const p = pointOn(from, to, bend, l.out ? 0.8 : 0.2);
         // Never on top of the selection itself.
@@ -733,7 +803,7 @@ function drawLinks() {
           p.x = sx + ux * minD;
           p.y = sy + uy * minD;
         }
-        badge(p.x, p.y, String(l.count), l.out ? outColor : inColor);
+        badges.push({ x: p.x, y: p.y, text: l.count.toLocaleString("tr"), color: l.out ? outColor : inColor });
       }
     }
   }
@@ -785,6 +855,9 @@ function curve(a: { x: number; y: number }, b: { x: number; y: number }, color: 
   ctx.restore();
 }
 
+/** Counts on bundled links, drawn after the labels so no name hides them. */
+let badges: { x: number; y: number; text: string; color: string }[] = [];
+
 function badge(x: number, y: number, text: string, color: string) {
   const font = `700 11px ${FONT}`;
   const w = textWidth(text, font) + 10, h = 17;
@@ -809,6 +882,13 @@ const collides = (b: Box) => placed.some((p) => b.x0 < p.x1 && b.x1 > p.x0 && b.
 
 function drawLabels() {
   placed = [];
+  // Overlays on the canvas claim their space first.
+  const origin = canvas.getBoundingClientRect();
+  for (const el of [legend, crumbs]) {
+    if (el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    placed.push({ x0: r.left - origin.left - 4, y0: r.top - origin.top - 4, x1: r.right - origin.left + 4, y1: r.bottom - origin.top + 4 });
+  }
   const arcs: Circle[] = [];
   const inner: Circle[] = [];
   const syms: Circle[] = [];
@@ -870,8 +950,9 @@ function arcLabel(c: Circle) {
   // holding just this file) takes the bottom instead, reading left to right.
   const top = { x0: cx - total / 2 - 4, y0: cy - sr - 2, x1: cx + total / 2 + 4, y1: cy - sr + fs * 1.6 };
   const bottom = { x0: top.x0, y0: cy + sr - fs * 1.6, x1: top.x1, y1: cy + sr + 2 };
-  const under = collides(top);
-  if (under && (isDir || collides(bottom))) return;
+  const visible = (b: Box) => b.x0 >= 2 && b.x1 <= W - 2 && b.y0 >= 2 && b.y1 <= H - 2;
+  const under = collides(top) || !visible(top);
+  if (under && (isDir || collides(bottom) || !visible(bottom))) return;
   const box = under ? bottom : top;
   placed.push(box);
   const dim = dimming() && !(focus?.lit.has(c) || highlight?.set.has(c) || containsLit(c));

@@ -138,7 +138,7 @@ private struct SearchRow: View {
             Spacer(minLength: 0)
             Text(node.kind.title)
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

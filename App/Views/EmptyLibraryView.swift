@@ -8,10 +8,10 @@ struct EmptyLibraryView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(isDropTargeted ? Palette.accent : Palette.labelMuted)
-                .symbolEffect(.bounce, value: isDropTargeted)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
+                .scaleEffect(isDropTargeted ? 1.08 : 1)
 
             VStack(spacing: 6) {
                 Text("Bir projenin haritasını çıkar")

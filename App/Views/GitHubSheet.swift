@@ -35,13 +35,13 @@ private struct ConnectView: View {
     var body: some View {
         VStack(spacing: 18) {
             Spacer()
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(Palette.accent)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 80, height: 80)
             VStack(spacing: 6) {
                 Text("GitHub hesabını bağla")
                     .font(.title2.weight(.semibold))
-                Text("Repoların listelenir, seçtiğin bu Mac'e indirilir ve haritası çıkarılır. Kodun hiçbir yere gönderilmez; şifren Mapo'a girilmez.")
+                Text("Repoların listelenir, seçtiğin bu Mac'e indirilir ve haritası çıkarılır. Kodun hiçbir yere gönderilmez; şifren Mapo'ya girilmez.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

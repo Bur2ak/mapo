@@ -24,7 +24,7 @@ struct MenuBarContent: View {
             .disabled(model.projects.allSatisfy { $0.lastIndex == nil })
         Toggle("Kendiliğinden Güncelle", isOn: Binding(get: { model.autoUpdate }, set: { model.autoUpdate = $0 }))
         Divider()
-        Button("Mapo'ı Aç") { showWindow() }
+        Button("Mapo'yu Aç") { showWindow() }
             .keyboardShortcut("o")
         Button("Çıkış") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
@@ -56,6 +56,6 @@ struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Image(systemName: model.indexer.isBusy ? "arrow.triangle.2.circlepath" : "point.3.connected.trianglepath.dotted")
+        Image(systemName: model.indexer.isBusy ? "arrow.triangle.2.circlepath" : "circle.circle")
     }
 }
