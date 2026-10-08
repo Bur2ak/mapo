@@ -82,7 +82,7 @@ public enum Bridges {
         var doc = Doc()
         var out = Output()
 
-        // Files graphify knows, plus .sql files it doesn't.
+        // Files graphify knows, plus schema files (.sql / .prisma) it doesn't.
         var fileNodeID: [String: String] = [:]
         for n in graph.nodes where n.kind == .file {
             if let f = n.sourceFile { fileNodeID[f] = n.id }
@@ -93,85 +93,94 @@ public enum Bridges {
             if let t = read(root.appendingPathComponent(f)) { texts[f] = t }
         }
 
-        // Functions by file, for "which function makes this call".
+        // "Which function makes this call": the innermost function whose
+        // body contains the line (Spans), else the file itself.
         var functions: [String: [(line: Int, id: String)]] = [:]
         for n in graph.nodes where n.kind == .function || n.kind == .method {
-            guard let f = n.sourceFile, let l = n.line else { continue }
+            guard let f = n.sourceFile, let l = n.line, texts[f] != nil else { continue }
             functions[f, default: []].append((l, n.id))
         }
-        for k in functions.keys { functions[k]!.sort { $0.line < $1.line } }
-        func owner(_ file: String, _ line: Int) -> String? {
-            if let fns = functions[file], let hit = fns.last(where: { $0.line <= line }) { return hit.id }
-            return fileNodeID[file]
+        // Inline route handlers (`r.get('/x', async (c) => { … })`) aren't
+        // functions to graphify: their body belongs to the route itself, so
+        // "GET /x reads users" — added to the spans once routes are known.
+        var spans = Spans(functions: functions, texts: texts)
+        func owner(_ file: String, _ line: Int) -> String? { spans.owner(file, line) ?? fileNodeID[file] }
+        func fileNode(_ f: String) -> String {
+            if let id = fileNodeID[f] { return id }
+            let id = "mapo:file:\(f)"
+            doc.nodes.append(.init(id: id, label: (f as NSString).lastPathComponent, type: "file", source_file: f, source_location: "L1"))
+            fileNodeID[f] = id
+            return id
         }
 
-        // HTTP
-        let routes = findRoutes(texts: texts)
+        // HTTP (JS/TS frameworks, Next.js, Cloudflare Workers, Python)
+        let routes = findRoutes(texts: texts) + pythonRoutes(texts: texts)
+        var routeID: [Int: String] = [:]
+        var seen = Set<String>()
+        for (i, r) in routes.enumerated() {
+            let id = "mapo:route:\(r.method) \(r.path)"
+            routeID[i] = id
+            guard seen.insert(id).inserted, let fileID = fileNodeID[r.file] else { continue }
+            doc.nodes.append(.init(id: id, label: "\(r.method) \(r.path)", type: "route", source_file: r.file, source_location: "L\(r.line)"))
+            doc.links.append(.init(source: fileID, target: id, relation: "contains", confidence: "EXTRACTED", source_file: r.file, source_location: "L\(r.line)"))
+            out.routes += 1
+        }
+        var handlers = functions
+        for (i, r) in routes.enumerated() where routeID[i] != nil && texts[r.file] != nil {
+            handlers[r.file, default: []].append((r.line, routeID[i]!))
+        }
+        spans = Spans(functions: handlers, texts: texts)
+        var edges = Set<String>()
+        func request(_ from: String?, _ target: String, _ file: String, _ line: Int) {
+            guard let from, edges.insert(from + "→" + target).inserted else { return }
+            doc.links.append(.init(source: from, target: target, relation: "requests", confidence: "INFERRED", source_file: file, source_location: "L\(line)"))
+            out.requests += 1
+        }
         if !routes.isEmpty {
-            var routeID: [Int: String] = [:]
-            var seen = Set<String>()
-            for (i, r) in routes.enumerated() {
-                let id = "mapo:route:\(r.method) \(r.path)"
-                routeID[i] = id
-                guard seen.insert(id).inserted, let fileID = fileNodeID[r.file] else { continue }
-                doc.nodes.append(.init(id: id, label: "\(r.method) \(r.path)", type: "route", source_file: r.file, source_location: "L\(r.line)"))
-                doc.links.append(.init(source: fileID, target: id, relation: "contains", confidence: "EXTRACTED", source_file: r.file, source_location: "L\(r.line)"))
+            let serverFiles = Set(routes.map(\.file))
+            for call in findCalls(texts: texts, skipping: serverFiles) + pythonCalls(texts: texts) {
+                guard let i = match(call, in: routes), let target = routeID[i], seen.contains(target) else { continue }
+                request(owner(call.file, call.line), target, call.file, call.line)
+            }
+        }
+
+        // tRPC
+        let procedures = findProcedures(texts: texts)
+        if !procedures.isEmpty {
+            var byPath: [String: String] = [:]
+            for p in procedures {
+                let id = "mapo:trpc:\(p.path)"
+                guard byPath[p.path] == nil, let fileID = fileNodeID[p.file] else { continue }
+                byPath[p.path] = id
+                doc.nodes.append(.init(id: id, label: "tRPC \(p.path)", type: "route", source_file: p.file, source_location: "L\(p.line)"))
+                doc.links.append(.init(source: fileID, target: id, relation: "contains", confidence: "EXTRACTED", source_file: p.file, source_location: "L\(p.line)"))
                 out.routes += 1
             }
-            let serverFiles = Set(routes.map(\.file))
-            var edges = Set<String>()
-            for call in findCalls(texts: texts, skipping: serverFiles) {
-                guard let i = match(call, in: routes), let target = routeID[i], seen.contains(target),
-                      let from = owner(call.file, call.line) else { continue }
-                guard edges.insert(from + "→" + target).inserted else { continue }
-                doc.links.append(.init(source: from, target: target, relation: "requests", confidence: "INFERRED", source_file: call.file, source_location: "L\(call.line)"))
-                out.requests += 1
+            for c in findRPCCalls(texts: texts) {
+                guard let target = byPath[c.path] else { continue }
+                request(owner(c.file, c.line), target, c.file, c.line)
             }
-            // Routes nobody calls stay: they are still the server's surface.
         }
 
-        // SQL
-        let sqlFiles = findSQLFiles(root: root)
+        // Databases (SQL migrations, Prisma, Drizzle; used via SQL, Supabase, Prisma, Drizzle)
+        let tables = findTables(root: root, texts: texts, schemaFiles: findSchemaFiles(root: root))
         var tableID: [String: String] = [:]
-        for f in sqlFiles {
-            guard let text = read(root.appendingPathComponent(f)) else { continue }
-            let lines = LineIndex(text)
-            var defined: [(String, Int)] = []
-            for m in createTable.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
-                guard let r = Range(m.range(at: 1), in: text) else { continue }
-                let name = text[r].lowercased()
-                guard tableID[name] == nil else { continue }
-                defined.append((name, lines.line(at: m.range.location)))
-            }
-            guard !defined.isEmpty else { continue }
-            let fileID = fileNodeID[f] ?? "mapo:file:\(f)"
-            if fileNodeID[f] == nil {
-                doc.nodes.append(.init(id: fileID, label: (f as NSString).lastPathComponent, type: "file", source_file: f, source_location: "L1"))
-                fileNodeID[f] = fileID
-            }
-            for (name, line) in defined {
-                let id = "mapo:table:\(name)"
-                tableID[name] = id
-                doc.nodes.append(.init(id: id, label: name, type: "table", source_file: f, source_location: "L\(line)"))
-                doc.links.append(.init(source: fileID, target: id, relation: "contains", confidence: "EXTRACTED", source_file: f, source_location: "L\(line)"))
-                out.tables += 1
-            }
+        for t in tables {
+            let id = "mapo:table:\(t.name.lowercased())"
+            tableID[t.name] = id
+            let fileID = fileNode(t.file)
+            doc.nodes.append(.init(id: id, label: t.name, type: "table", source_file: t.file, source_location: "L\(t.line)"))
+            doc.links.append(.init(source: fileID, target: id, relation: "contains", confidence: "EXTRACTED", source_file: t.file, source_location: "L\(t.line)"))
+            out.tables += 1
         }
-        if !tableID.isEmpty {
-            var edges = Set<String>()
-            for f in codeFiles {
-                guard let text = texts[f] else { continue }
-                let lines = LineIndex(text)
-                for m in sqlUse.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
-                    guard let kw = Range(m.range(at: 1), in: text), let nr = Range(m.range(at: 2), in: text),
-                          let target = tableID[text[nr].lowercased()] else { continue }
-                    let line = lines.line(at: m.range.location)
-                    guard let from = owner(f, line) else { continue }
-                    let rel = ["FROM", "JOIN"].contains(text[kw].uppercased()) ? "reads" : "writes"
-                    guard edges.insert("\(from)→\(target)→\(rel)").inserted else { continue }
-                    doc.links.append(.init(source: from, target: target, relation: rel, confidence: "INFERRED", source_file: f, source_location: "L\(line)"))
-                    out.queries += 1
-                }
+        if !tables.isEmpty {
+            var used = Set<String>()
+            for u in findTableUses(texts: texts, tables: tables) {
+                guard let target = tableID[u.table], let from = owner(u.file, u.line) else { continue }
+                let rel = u.writes ? "writes" : "reads"
+                guard used.insert("\(from)→\(target)→\(rel)").inserted else { continue }
+                doc.links.append(.init(source: from, target: target, relation: rel, confidence: "INFERRED", source_file: u.file, source_location: "L\(u.line)"))
+                out.queries += 1
             }
         }
         return (doc, out)
@@ -179,10 +188,15 @@ public enum Bridges {
 
     // MARK: - HTTP: server side
 
-    static let codeExtensions: Set<String> = ["ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts"]
+    static let codeExtensions: Set<String> = ["ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts", "py"]
 
     static let serverMarker = try! NSRegularExpression(
-        pattern: #"from\s+['"](hono|express|fastify|koa-router|@koa/router|itty-router|elysia)['"/]|require\(\s*['"](express|fastify|koa-router)['"]\s*\)|new\s+(Hono|Elysia|Router)\s*[<(]|\bexpress\.Router\s*\("#)
+        pattern: #"from\s+['"](hono|express|fastify|koa-router|@koa/router|itty-router|elysia)['"/]|require\(\s*['"](express|fastify|koa-router)['"]\s*\)|new\s+(Hono|Elysia|Router)\s*[<(]|\bexpress\.Router\s*\(|export\s+default\s*\{[^}]{0,400}?\bfetch\s*[(:]"#)
+
+    /// Cloudflare Workers without a router: `if (url.pathname === '/x')`,
+    /// `case '/x':` inside a module worker's fetch handler.
+    static let workerPath = try! NSRegularExpression(
+        pattern: #"pathname\s*===?\s*['"`](/[^'"`]*)['"`]|\bcase\s+['"`](/[^'"`]*)['"`]\s*:"#)
 
     static let routeDef = try! NSRegularExpression(
         pattern: #"\b([A-Za-z_$][\w$]*)\s*\.\s*(get|post|put|patch|delete|all|options|head)\s*(?:<[^>()]*>)?\s*\(\s*(['"`])(/[^'"`]*)\3\s*,"#)
@@ -227,11 +241,21 @@ public enum Bridges {
             guard let t = texts[f] else { continue }
             let lines = LineIndex(t)
             let base = prefix(of: f)
+            var found = false
             for m in routeDef.matches(in: t, range: NSRange(t.startIndex..., in: t)) {
                 guard let mr = Range(m.range(at: 2), in: t), let pr = Range(m.range(at: 4), in: t) else { continue }
                 let path = normalize(base + String(t[pr]))
                 guard !path.contains("${") else { continue }
                 routes.append(Route(method: t[mr].uppercased() == "ALL" ? "*" : t[mr].uppercased(), path: path, file: f, line: lines.line(at: m.range.location)))
+                found = true
+            }
+            // A worker that routes by hand (no framework routes in the file).
+            if !found {
+                for m in workerPath.matches(in: t, range: NSRange(t.startIndex..., in: t)) {
+                    let g = m.range(at: 1).location != NSNotFound ? 1 : 2
+                    guard let pr = Range(m.range(at: g), in: t) else { continue }
+                    routes.append(Route(method: "*", path: normalize(base + String(t[pr])), file: f, line: lines.line(at: m.range.location)))
+                }
             }
         }
 
@@ -302,8 +326,10 @@ public enum Bridges {
 
     // MARK: - HTTP: client side
 
+    /// `get('/x')`, `axios.get(`${API}/x`)`, `env.AUTH.fetch('https://auth/x')`
+    /// (Cloudflare service binding: a bare host name, or localhost, is ours).
     static let clientCall = try! NSRegularExpression(
-        pattern: #"(?<![\w$.])((?:[A-Za-z_$][\w$]*\.)?[A-Za-z_$][\w$]*)\s*(?:<[^>()]*>)?\s*\(\s*(['"`])((?:\$\{[^}]*\})?/[^'"`]*)\2"#)
+        pattern: #"(?<![\w$.])((?:[A-Za-z_$][\w$]*\.){0,2}[A-Za-z_$][\w$]*)\s*(?:<[^>()]*>)?\s*\(\s*(['"`])((?:\$\{[^}]*\}|https?://(?:localhost|127\.0\.0\.1|[A-Za-z0-9_-]+)(?::\d+)?)?/[^'"`]*)\2"#)
 
     static let methodOption = try! NSRegularExpression(pattern: #"method\s*:\s*['"`](GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)['"`]"#, options: .caseInsensitive)
 
@@ -314,7 +340,7 @@ public enum Bridges {
 
     static func findCalls(texts: [String: String], skipping: Set<String>) -> [Call] {
         var calls: [Call] = []
-        for (f, t) in texts where !skipping.contains(f) {
+        for (f, t) in texts where !skipping.contains(f) && !f.hasSuffix(".py") {
             let lines = LineIndex(t)
             let ns = t as NSString
             for m in clientCall.matches(in: t, range: NSRange(location: 0, length: ns.length)) {
@@ -336,7 +362,8 @@ public enum Bridges {
                     if let o = methodOption.firstMatch(in: t, range: after) { method = ns.substring(with: o.range(at: 1)).uppercased() }
                 default: break
                 }
-                let receiver = callee.contains(".") ? String(ns.substring(with: m.range(at: 1)).split(separator: ".")[0]) : nil
+                let parts = ns.substring(with: m.range(at: 1)).split(separator: ".")
+                let receiver = parts.count > 1 ? String(parts[parts.count - 2]) : nil
                 calls.append(Call(method: method, path: path, file: f, line: lines.line(at: m.range.location), receiver: receiver))
             }
         }
@@ -365,6 +392,7 @@ public enum Bridges {
     /// an unclosed one (nested template) ends the path.
     static func normalize(_ raw: String) -> String {
         var s = raw
+        if let origin = s.range(of: #"^https?://[^/]+"#, options: .regularExpression) { s.removeSubrange(origin) }
         if s.hasPrefix("${"), let close = s.firstIndex(of: "}") { s = String(s[s.index(after: close)...]) }
         if let q = s.firstIndex(where: { $0 == "?" || $0 == "#" }) { s = String(s[..<q]) }
         while let open = s.range(of: "${") {
@@ -429,16 +457,17 @@ public enum Bridges {
         pattern: #"CREATE\s+(?:VIRTUAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"\[]?(?:\w+[`"\]]?\.[`"\[]?)?([A-Za-z_]\w*)"#, options: .caseInsensitive)
 
     /// Uppercase keywords only: `import x from "y"` must not read as SQL.
-    static let sqlUse = try! NSRegularExpression(pattern: #"\b(FROM|JOIN|INTO|UPDATE)\s+[`"]?([A-Za-z_]\w*)"#)
+    /// `DELETE FROM x` writes even though it says FROM.
+    static let sqlUse = try! NSRegularExpression(pattern: #"\b(DELETE\s+FROM|FROM|JOIN|INTO|UPDATE)\s+[`"]?([A-Za-z_]\w*)"#)
 
-    static func findSQLFiles(root: URL) -> [String] {
+    static func findSchemaFiles(root: URL) -> [String] {
         let skip: Set<String> = ["node_modules", ".git", "build", "dist", ".next", "Pods", "DerivedData", ".build", "vendor"]
         guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return [] }
         var out: [String] = []
         let base = root.standardizedFileURL.path
         while let url = e.nextObject() as? URL {
             if skip.contains(url.lastPathComponent) { e.skipDescendants(); continue }
-            guard url.pathExtension.lowercased() == "sql" else { continue }
+            guard ["sql", "prisma"].contains(url.pathExtension.lowercased()) else { continue }
             let p = url.standardizedFileURL.path
             guard p.hasPrefix(base + "/") else { continue }
             out.append(String(p.dropFirst(base.count + 1)))

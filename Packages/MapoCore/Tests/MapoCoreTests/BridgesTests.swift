@@ -129,8 +129,11 @@ struct BridgesTests {
               await db.prepare(`INSERT INTO kulupler (id) VALUES (?)`).run()
               await db.prepare(`SELECT k.* FROM kulupler k JOIN kullanicilar u ON 1`).all()
             }
+            export async function sil(db) {
+              await db.prepare('DELETE FROM kullanicilar WHERE id = ?').run()
+            }
             """,
-        ], functions: [("api/src/db.ts", "kullaniciBul", 2), ("api/src/db.ts", "kulupEkle", 5)])
+        ], functions: [("api/src/db.ts", "kullaniciBul", 2), ("api/src/db.ts", "kulupEkle", 5), ("api/src/db.ts", "sil", 9)])
         let (doc, out) = Bridges.extract(root: root, graph: graph)
         #expect(Set(doc.nodes.filter { $0.type == "table" }.map(\.label)) == ["kullanicilar", "kulupler"])
         // The migration file becomes a file node (graphify skips .sql).
@@ -143,8 +146,8 @@ struct BridgesTests {
             "fn:api/src/db.ts:kulupEkle→mapo:table:kulupler",
             "fn:api/src/db.ts:kulupEkle→mapo:table:kullanicilar",
         ])
-        #expect(writes == ["fn:api/src/db.ts:kulupEkle→mapo:table:kulupler"])
-        #expect(out.tables == 2 && out.queries == 4)
+        #expect(writes == ["fn:api/src/db.ts:kulupEkle→mapo:table:kulupler", "fn:api/src/db.ts:sil→mapo:table:kullanicilar"])
+        #expect(out.tables == 2 && out.queries == 5)
     }
 
     @Test func noServerNoBridgesAndLoaderMerges() throws {
@@ -227,6 +230,29 @@ struct BridgesTests {
         let calls = Bridges.findCalls(texts: texts, skipping: Set(routes.map(\.file)))
         let missed = calls.filter { Bridges.match($0, in: routes) == nil }
         print("CALLS \(calls.count) matched \(calls.count - missed.count)")
+        let fileIDs = Set(graph.nodes.filter { $0.kind == .file }.map(\.id))
+        let sqlEdges = doc.links.filter { $0.relation == "reads" || $0.relation == "writes" }
+        print("SQL edges from files \(sqlEdges.filter { fileIDs.contains($0.source) || $0.source.hasPrefix("mapo:file:") }.count) / \(sqlEdges.count)")
+        // Functions with a one-line span although their text spans more (brace parse failures).
+        var fns: [String: [(line: Int, id: String)]] = [:]
+        for n in graph.nodes where (n.kind == .function || n.kind == .method) {
+            if let f = n.sourceFile, let l = n.line, texts[f] != nil { fns[f, default: []].append((l, n.id)) }
+        }
+        var oneLine = 0, total = 0
+        for (f, list) in fns {
+            let lines = texts[f]!.components(separatedBy: "\n")
+            for x in list {
+                total += 1
+                let end = f.hasSuffix(".py") ? Bridges.Spans.pythonEnd(lines, start: x.line) : Bridges.Spans.braceEnd(lines, start: x.line)
+                if end == x.line { oneLine += 1; if oneLine <= 6 { print("  ONE", f, x.line, lines[x.line - 1].prefix(90)) } }
+            }
+        }
+        print("one-line spans \(oneLine) / \(total)")
+        var byDir: [String: Int] = [:]
+        for e in sqlEdges where fileIDs.contains(e.source) { byDir[(e.source_file as NSString).deletingLastPathComponent, default: 0] += 1 }
+        for (d, c) in byDir.sorted(by: { $0.value > $1.value }).prefix(6) { print("  FILEDIR", d, c) }
+        let routeSQL = sqlEdges.filter { $0.source.hasPrefix("mapo:route:") }
+        print("SQL edges from routes \(routeSQL.count)"); for e in routeSQL.prefix(3) { print("  RT", e.source, e.relation, e.target) }
         for c in missed.prefix(40) { print("  MISS", c.method, c.path, c.file, c.line) }
     }
 }
