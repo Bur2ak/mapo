@@ -12,10 +12,23 @@ struct SearchPalette: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let start = workspace.pathStart, let node = workspace.node(at: start) {
+                HStack(spacing: 6) {
+                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                    Text("Yol:")
+                    Text(node.kind == .file ? node.label : node.name).fontWeight(.semibold)
+                    Text("→ nereye?")
+                    Spacer()
+                }
+                .font(.callout)
+                .foregroundStyle(Palette.accent)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            }
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Sembol, dosya ya da yol ara", text: $query)
+                TextField(workspace.pathStart == nil ? "Sembol, dosya ya da yol ara" : "Hedef dosya ya da fonksiyon ara", text: $query)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($focused)
@@ -92,12 +105,18 @@ struct SearchPalette: View {
 
     private func choose(open: Bool) {
         guard hits.indices.contains(cursor), let node = workspace.node(at: hits[cursor].position) else { return }
+        if workspace.pathStart != nil {
+            workspace.showPath(to: hits[cursor].position)
+            workspace.isSearchPresented = false
+            return
+        }
         workspace.select(node.id)
         if open { Editor.open(node: node, in: workspace) }
         close()
     }
 
     private func close() {
+        workspace.cancelPath()
         workspace.isSearchPresented = false
     }
 

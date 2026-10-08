@@ -58,6 +58,16 @@ final class Workspace {
     var selectedID: String?
     var isSearchPresented = false
 
+    /// A question answered on the map, shown in the inspector until dismissed.
+    enum Overlay: Equatable {
+        case path(Graph.PathResult)
+        case noPath(from: Int, to: Int)
+        case impact(of: Int, rings: [[Int]])
+    }
+    private(set) var overlay: Overlay?
+    /// Picking the other end of a path in the palette.
+    private(set) var pathStart: Int?
+
     let map: MapController
     private let paths: MapoPaths
     private let indexer: IndexCoordinator
@@ -132,6 +142,8 @@ final class Workspace {
                 return (graph, SearchIndex(graph: graph), data, minified)
             }.value
             self.graph = graph
+            overlay = nil
+            pathStart = nil
             self.search = search
             self.payloadData = data
             self.noisyFiles = minifiedFiles
@@ -182,6 +194,42 @@ final class Workspace {
         if fly { map.select(id) }
     }
 
+    // MARK: Questions on the map
+
+    func beginPath(from position: Int) {
+        pathStart = position
+        isSearchPresented = true
+    }
+
+    func cancelPath() { pathStart = nil }
+
+    func showPath(to target: Int) {
+        guard let graph, let start = pathStart else { return }
+        pathStart = nil
+        guard let result = graph.shortestPath(from: start, to: target) else {
+            overlay = .noPath(from: start, to: target)
+            map.clearHighlight()
+            return
+        }
+        overlay = .path(result)
+        let steps = result.edges.count
+        map.showPath(result.nodes.map { graph.nodes[$0].id }, label: String(localized: "Yol · \(steps) adım"))
+    }
+
+    func showImpact(of position: Int) {
+        guard let graph else { return }
+        let rings = graph.impact(of: position)
+        overlay = .impact(of: position, rings: rings)
+        let affected = rings.dropFirst().reduce(0) { $0 + $1.count }
+        let ids = rings.flatMap { $0 }.prefix(400).map { graph.nodes[$0].id }
+        map.highlight(Array(ids), label: String(localized: "Etki alanı · \(affected)"))
+    }
+
+    func clearOverlay() {
+        overlay = nil
+        map.clearHighlight()
+    }
+
     func node(at position: Int) -> Node? {
         graph.map { $0.nodes[position] }
     }
@@ -216,6 +264,17 @@ final class Workspace {
             if let select, let id = graph?.node(select)?.id ?? search.flatMap({ _ in nil }) { self.select(id) }
             if let search, let hit = self.search?.search(search).first, let n = node(at: hit.position) { self.select(n.id) }
             if d.bool(forKey: "mapoPalette") { isSearchPresented = true }
+            if let to = d.string(forKey: "mapoPathTo"), let id = selectedID, let from = graph?.position(of: id),
+               let hit = self.search?.search(to).first {
+                try? await Task.sleep(for: .seconds(1))
+                beginPath(from: from)
+                isSearchPresented = d.bool(forKey: "mapoPalette")
+                if !isSearchPresented { showPath(to: hit.position) }
+            }
+            if d.bool(forKey: "mapoImpact"), let id = selectedID, let p = graph?.position(of: id) {
+                try? await Task.sleep(for: .seconds(1))
+                showImpact(of: p)
+            }
         }
     }
     #endif
@@ -230,6 +289,8 @@ final class Workspace {
         switch event {
         case .select(let id):
             selectedID = id
+        case .highlightCleared:
+            overlay = nil
         case .open(let id):
             if let node = graph?.node(id) { Editor.open(node: node, in: self) }
         case .layout(let positions):

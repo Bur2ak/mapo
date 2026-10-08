@@ -9,7 +9,9 @@ struct InspectorView: View {
 
     var body: some View {
         Group {
-            if let graph = workspace.graph, let id = workspace.selectedID, let position = graph.position(of: id) {
+            if let graph = workspace.graph, let overlay = workspace.overlay {
+                OverlayInspector(graph: graph, overlay: overlay)
+            } else if let graph = workspace.graph, let id = workspace.selectedID, let position = graph.position(of: id) {
                 NodeInspector(graph: graph, position: position)
                     .id(id)
             } else {
@@ -136,19 +138,28 @@ private struct NodeInspector: View {
     private var actions: some View {
         HStack {
             Button {
-                let rings = graph.impact(of: position)
-                let ids = rings.flatMap { $0 }.prefix(400).map { graph.nodes[$0].id }
-                workspace.map.highlight(Array(ids))
+                workspace.showImpact(of: position)
             } label: {
                 Label("Etki alanı", systemImage: "dot.radiowaves.left.and.right")
             }
             .help("Bu değişirse nelerin etkilenebileceğini haritada göster")
 
             Button {
+                workspace.beginPath(from: position)
+            } label: {
+                Label("Yol bul…", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            .help("Buradan başka bir dosya ya da fonksiyona giden bağlantı zincirini göster")
+
+            Spacer(minLength: 0)
+
+            Button {
                 workspace.map.focus(node.id)
             } label: {
-                Label("Haritada bul", systemImage: "scope")
+                Image(systemName: "scope")
             }
+            .help("Haritada bul")
+            .accessibilityLabel("Haritada bul")
         }
         .controlSize(.small)
     }
@@ -156,6 +167,141 @@ private struct NodeInspector: View {
     private func unique(_ positions: [Int]) -> [Int] {
         var seen = Set<Int>()
         return positions.filter { $0 != position && seen.insert($0).inserted }
+    }
+}
+
+/// The answer to "how does A reach B" or "what breaks if this changes",
+/// step by step, while the map shows it.
+private struct OverlayInspector: View {
+    @Environment(Workspace.self) private var workspace
+    let graph: Graph
+    let overlay: Workspace.Overlay
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                switch overlay {
+                case .path(let result): path(result)
+                case .noPath(let from, let to): noPath(from, to)
+                case .impact(let of, let rings): impact(of, rings)
+                }
+                Button("Kapat") { workspace.clearOverlay() }
+                    .keyboardShortcut(.cancelAction)
+                    .controlSize(.small)
+            }
+            .padding(16)
+        }
+    }
+
+    private func header(_ kind: LocalizedStringKey, symbol: String, title: String, subtitle: String?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(kind, systemImage: symbol)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .lineLimit(3)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func name(_ p: Int) -> String {
+        let n = graph.nodes[p]
+        return n.kind == .file ? n.label : n.name
+    }
+
+    @ViewBuilder private func path(_ r: Graph.PathResult) -> some View {
+        let first = r.nodes.first ?? 0, last = r.nodes.last ?? 0
+        header("Yol", symbol: "point.topleft.down.to.point.bottomright.curvepath",
+               title: "\(name(first)) → \(name(last))",
+               subtitle: r.directed
+                   ? String(localized: "\(r.edges.count) adımda ulaşıyor.")
+                   : String(localized: "Doğrudan ulaşmıyor; aralarındaki en kısa bağ \(r.edges.count) adım (yön gözetmeden)."))
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(r.nodes.enumerated()), id: \.offset) { i, p in
+                RelationRow(node: graph.nodes[p])
+                if i < r.edges.count {
+                    let e = graph.edges[r.edges[i]]
+                    let forward = e.sourcePosition == p
+                    Label(Self.verb(e.relation, forward: forward), systemImage: "arrow.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 26)
+                        .padding(.vertical, 1)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func noPath(_ from: Int, _ to: Int) -> some View {
+        header("Yol", symbol: "point.topleft.down.to.point.bottomright.curvepath",
+               title: "\(name(from)) → \(name(to))",
+               subtitle: String(localized: "Bu ikisi arasında bağlantı zinciri yok: biri diğerini hiçbir yoldan kullanmıyor."))
+    }
+
+    @ViewBuilder private func impact(_ of: Int, _ rings: [[Int]]) -> some View {
+        let affected = rings.dropFirst().reduce(0) { $0 + $1.count }
+        header("Etki alanı", symbol: "dot.radiowaves.left.and.right", title: name(of),
+               subtitle: affected == 0
+                   ? String(localized: "Hiçbir yer buna bağlı değil; değişmesi başka bir şeyi bozmaz.")
+                   : String(localized: "Bu değişirse \(affected) yer etkilenebilir."))
+        ForEach(Array(rings.enumerated().dropFirst()), id: \.offset) { depth, ring in
+            ImpactRing(title: depth == 1 ? "Doğrudan kullananlar" : "\(depth). derece", positions: ring, graph: graph)
+        }
+    }
+
+    static func verb(_ r: Relation, forward: Bool) -> LocalizedStringKey {
+        switch (r, forward) {
+        case (.calls, true), (.indirectCall, true): "çağırır"
+        case (.calls, false), (.indirectCall, false): "tarafından çağrılır"
+        case (.contains, true), (.method, true): "içerir"
+        case (.contains, false), (.method, false): "içinde"
+        case (.inherits, true): "miras alır"
+        case (.inherits, false): "tarafından miras alınır"
+        case (.references, true): "kullanır"
+        case (.references, false): "tarafından kullanılır"
+        case (_, true) where r.isImport: "içe aktarır"
+        case (_, false) where r.isImport: "tarafından içe aktarılır"
+        default: forward ? "bağlı" : "bağlı (ters yön)"
+        }
+    }
+}
+
+private struct ImpactRing: View {
+    let title: LocalizedStringKey
+    let positions: [Int]
+    let graph: Graph
+    @State private var showAll = false
+    private let limit = 12
+
+    var body: some View {
+        if !positions.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text("\(positions.count)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                ForEach(showAll ? positions : Array(positions.prefix(limit)), id: \.self) { p in
+                    RelationRow(node: graph.nodes[p])
+                }
+                if positions.count > limit {
+                    Button(showAll ? "Daha az göster" : "\(positions.count - limit) tane daha") { showAll.toggle() }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                        .padding(.leading, 24)
+                }
+            }
+        }
     }
 }
 

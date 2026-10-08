@@ -14,6 +14,8 @@ final class MapController: NSObject {
         case loaded(nodes: Int, edges: Int)
         case select(String?)
         case open(String)
+        /// The user left a path / impact view on the map (click, esc).
+        case highlightCleared
         case layoutProgress(Double)
         case layout([String: [Double]])
         case error(String)
@@ -136,8 +138,8 @@ final class MapController: NSObject {
     }
 
     func focus(_ id: String) { call("mapoMap.focus(id)", ["id": id]) }
-    func showPath(_ nodeIDs: [String]) { call("mapoMap.showPath(ids)", ["ids": nodeIDs]) }
-    func highlight(_ nodeIDs: [String]) { call("mapoMap.highlightSet(ids)", ["ids": nodeIDs]) }
+    func showPath(_ nodeIDs: [String], label: String = "") { call("mapoMap.showPath(ids, label)", ["ids": nodeIDs, "label": label]) }
+    func highlight(_ nodeIDs: [String], label: String = "") { call("mapoMap.highlightSet(ids, label)", ["ids": nodeIDs, "label": label]) }
     func clearHighlight() { call("mapoMap.clearHighlight()", [:]) }
     func fit() { call("mapoMap.fit()", [:]) }
     func focusGroup(_ id: Int) { call("mapoMap.focusGroup(g)", ["g": id]) }
@@ -188,6 +190,8 @@ final class MapController: NSObject {
             onEvent?(.select(msg["id"] as? String))
         case "open":
             if let id = msg["id"] as? String { onEvent?(.open(id)) }
+        case "highlight":
+            if msg["active"] as? Bool == false { onEvent?(.highlightCleared) }
         case "layoutProgress":
             let v = msg["value"] as? Double ?? 0
             layoutProgress = v >= 1 ? nil : v

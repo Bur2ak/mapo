@@ -17,6 +17,18 @@ struct MapCommands: Commands {
             .keyboardShortcut(.return)
             .disabled(workspace?.selectedNode == nil)
 
+            Button("Yol Bul…") {
+                if let ws = workspace, let id = ws.selectedID, let p = ws.graph?.position(of: id) { ws.beginPath(from: p) }
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
+            .disabled(workspace?.selectedNode == nil)
+
+            Button("Etki Alanını Göster") {
+                if let ws = workspace, let id = ws.selectedID, let p = ws.graph?.position(of: id) { ws.showImpact(of: p) }
+            }
+            .keyboardShortcut("i", modifiers: [.command, .shift])
+            .disabled(workspace?.selectedNode == nil)
+
             Divider()
 
             Button("Haritayı Güncelle") { workspace?.index() }
@@ -40,7 +52,7 @@ struct MapCommands: Commands {
             Button("Uzaklaştır") { workspace?.map.zoom(1 / 1.5) }
                 .keyboardShortcut("-")
             Button("Vurguyu Temizle") {
-                workspace?.map.clearHighlight()
+                workspace?.clearOverlay()
             }
             .keyboardShortcut(.escape, modifiers: [.command])
 

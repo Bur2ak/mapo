@@ -70,7 +70,7 @@ private struct WorkspaceView: View {
             if workspace.isSearchPresented {
                 ZStack(alignment: .top) {
                     Color.black.opacity(0.001)
-                        .onTapGesture { workspace.isSearchPresented = false }
+                        .onTapGesture { workspace.cancelPath(); workspace.isSearchPresented = false }
                     SearchPalette()
                         .padding(.top, 60)
                         .padding(.horizontal, 24)

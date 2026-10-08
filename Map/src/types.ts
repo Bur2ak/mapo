@@ -62,6 +62,7 @@ export type Outgoing =
   | { type: "layoutProgress"; value: number }
   | { type: "detail"; value: Detail }
   | { type: "noise"; value: boolean }
+  | { type: "highlight"; active: boolean }
   | { type: "groups"; mode: ColorMode; groups: GroupInfo[] }
   | { type: "layout"; positions: Record<string, [number, number]> }
   | { type: "error"; message: string };

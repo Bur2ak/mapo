@@ -624,11 +624,23 @@ function updateLegend() {
     return set.size;
   };
   const out = focus ? count(focus.uses) : 0, inn = focus ? count(focus.usedBy) : 0;
-  const key = focus && selected ? `${out}|${inn}|${theme.dark}` : "";
+  const key = highlight && highlightLabel ? `h|${highlightLabel}` : focus && selected ? `${out}|${inn}|${theme.dark}` : "";
   if (key === legendKey) return;
   legendKey = key;
   legend.hidden = !key;
   if (!key) return;
+  if (highlight) {
+    legend.replaceChildren();
+    const el = document.createElement("span");
+    const dot = document.createElement("i");
+    dot.style.background = theme.accent;
+    dot.textContent = highlight.chain ? "→" : "!";
+    const b = document.createElement("b");
+    b.textContent = highlightLabel;
+    el.append(dot, b);
+    legend.append(el);
+    return;
+  }
   const inColor = theme.dark ? "#7FB2FF" : "#2F6FD6";
   legend.replaceChildren();
   const row = (color: string, text: string, n: number, arrow: string) => {
@@ -1412,8 +1424,18 @@ function kindLabel(k: Kind): string {
 // ---------------------------------------------------------------------------
 // Selection
 
+function fileOfId(id: string): Circle | undefined {
+  const n = payload?.nodes;
+  if (!n) return undefined;
+  const i = n.id.indexOf(id);
+  const owner = i >= 0 ? n.owner?.[i] ?? -1 : -1;
+  return owner >= 0 ? byKey.get(n.id[owner]) : undefined;
+}
+
 function setSelected(c: Circle | null, notify: boolean, fly: boolean) {
   selected = c;
+  // The user moved on from a path / impact view: tell the app.
+  if (highlight) post({ type: "highlight", active: false });
   highlight = null;
   computeFocus();
   if (notify) post({ type: "select", id: c?.key ?? null });
@@ -1422,7 +1444,6 @@ function setSelected(c: Circle | null, notify: boolean, fly: boolean) {
 }
 
 function clearSelection(notify: boolean) {
-  highlight = null;
   setSelected(null, notify, false);
 }
 
@@ -1479,11 +1500,19 @@ function selectKey(id: string | null, fly: boolean) {
   setSelected(c, false, fly);
 }
 
-function setHighlight(ids: string[], chain: boolean) {
-  const list = ids.map((id) => byKey.get(id)).filter((c): c is Circle => !!c);
+/** What a highlight shows ("Yol · 4 adım"), in the legend strip. */
+let highlightLabel = "";
+
+function setHighlight(ids: string[], chain: boolean, label = "") {
+  // Symbols the current level doesn't draw stand in as their file.
+  const list = ids
+    .map((id) => byKey.get(id) ?? fileOfId(id))
+    .filter((c): c is Circle => !!c)
+    .filter((c, i, a) => a.indexOf(c) === i);
   if (!list.length) return;
   selected = null;
   focus = null;
+  highlightLabel = label;
   highlight = { set: new Set(list), chain: chain ? list : null };
   fitCircles(list);
   requestDraw();
@@ -1513,8 +1542,8 @@ const api = {
     const c = byKey.get(id);
     if (c) fitCircles([c]);
   },
-  showPath: (ids: string[]) => setHighlight(ids, true),
-  highlightSet: (ids: string[]) => setHighlight(ids, false),
+  showPath: (ids: string[], label = "") => setHighlight(ids, true, label),
+  highlightSet: (ids: string[], label = "") => setHighlight(ids, false, label),
   clearHighlight: () => {
     highlight = null;
     requestDraw();
