@@ -773,12 +773,12 @@
         }
       }
     },
-    "Dosyalar: yalnız dosyalar · Kod: fonksiyon ve tipler · Tümü: sabitler ve dış paketler dahil (⌘1 ⌘2 ⌘3)": {
+    "Dosyalar: yalnız dosyalar · Kod: fonksiyonlar, tipler, uç noktalar ve tablolar · Tümü: sabitler ve değişkenler de (⌘1 ⌘2 ⌘3)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Files: files only · Code: functions and types · All: including constants and external packages (⌘1 ⌘2 ⌘3)"
+            "value": "Files: files only · Code: functions, types, endpoints and tables · All: constants and variables too (⌘1 ⌘2 ⌘3)"
           }
         }
       }

@@ -28,7 +28,9 @@ private struct WorkspaceView: View {
         guard let g = workspace.graph else { return }
         let files = g.nodes.count { $0.kind == .file }
         let code = g.nodes.count { $0.kind == .function || $0.kind == .method || $0.kind == .type }
-        let all = g.nodes.count { $0.kind != .external }
+        // Exactly what the map draws at "All": files, code, constants (no
+        // external packages or package.json dependencies).
+        let all = g.nodes.count { $0.kind != .external && $0.kind != .document }
         let text: String = switch level {
         case .files: String(localized: "\(files) dosya")
         case .symbols: String(localized: "\(files) dosya + \(code) fonksiyon ve tip · adlar yakınlaştıkça görünür")
@@ -139,7 +141,7 @@ private struct WorkspaceToolbar: ToolbarContent {
                 ForEach(MapController.Detail.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            .help("Dosyalar: yalnız dosyalar · Kod: fonksiyon ve tipler · Tümü: sabitler ve dış paketler dahil (⌘1 ⌘2 ⌘3)")
+            .help("Dosyalar: yalnız dosyalar · Kod: fonksiyonlar, tipler, uç noktalar ve tablolar · Tümü: sabitler ve değişkenler de (⌘1 ⌘2 ⌘3)")
             .disabled(workspace.state != .ready)
 
             Menu {
