@@ -84,6 +84,7 @@ private struct WorkspaceView: View {
         .overlay(alignment: .bottom) {
             if workspace.state == .ready {
                 VStack(spacing: 8) {
+                    if let toast = workspace.toast { LevelNote(text: toast) }
                     if let note = levelNote { LevelNote(text: note) }
                     MapHint()
                 }
@@ -93,6 +94,7 @@ private struct WorkspaceView: View {
         .onChange(of: workspace.map.detail) { _, level in showLevelNote(level) }
         .navigationSubtitle(statusLine)
         .animation(.easeOut(duration: 0.14), value: workspace.isSearchPresented)
+        .animation(.easeOut(duration: 0.15), value: workspace.toast)
         .background(Palette.canvas)
         .task { await workspace.open() }
         .inspector(isPresented: $inspectorShown) {

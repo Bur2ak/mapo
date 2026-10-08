@@ -146,6 +146,13 @@ final class MapController: NSObject {
     func zoom(_ factor: Double) { call("mapoMap.zoom(f)", ["f": factor]) }
     func relayout() { call("mapoMap.relayout()", [:]) }
 
+    /// The map as it is on screen, as PNG data.
+    func snapshotPNG() async -> Data? {
+        guard isReady, let url = try? await webView.callAsyncJavaScript("return mapoMap.snapshot()", arguments: [:], in: nil, contentWorld: .page) as? String,
+              let comma = url.firstIndex(of: ",") else { return nil }
+        return Data(base64Encoded: String(url[url.index(after: comma)...]))
+    }
+
     private func call(_ body: String, _ args: [String: Any]) {
         guard isReady else {
             // Keep only the latest of each command kind; `load` always survives.

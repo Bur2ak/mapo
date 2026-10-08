@@ -171,6 +171,17 @@ private struct NodeInspector: View {
             }
             .help("Haritada bul")
             .accessibilityLabel("Haritada bul")
+
+            Menu {
+                Button("Mermaid Olarak Kopyala") { workspace.copyMermaid() }
+                Button("Görüntü Olarak Kaydet…") { Task { await workspace.exportImage() } }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Dışa aktar")
+            .accessibilityLabel("Dışa aktar")
         }
         .controlSize(.small)
     }
@@ -206,9 +217,14 @@ private struct OverlayInspector: View {
                 case .noPath(let from, let to): noPath(from, to)
                 case .impact(let of, let rings): impact(of, rings)
                 }
-                Button("Kapat") { workspace.clearOverlay() }
-                    .keyboardShortcut(.cancelAction)
-                    .controlSize(.small)
+                HStack {
+                    Button("Kapat") { workspace.clearOverlay() }
+                        .keyboardShortcut(.cancelAction)
+                    if case .path = overlay {
+                        Button("Mermaid Olarak Kopyala") { workspace.copyMermaid() }
+                    }
+                }
+                .controlSize(.small)
             }
             .padding(16)
         }

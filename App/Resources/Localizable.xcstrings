@@ -825,6 +825,16 @@
         }
       }
     },
+    "Dışa aktar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
+    },
     "Editörde Aç": {
       "localizations": {
         "en": {
@@ -1094,6 +1104,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Privacy"
+          }
+        }
+      }
+    },
+    "Görüntü Olarak Kaydet…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save as Image…"
+          }
+        }
+      }
+    },
+    "Görüntü alınamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't capture the map"
+          }
+        }
+      }
+    },
+    "Görüntü kaydedildi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image saved"
           }
         }
       }
@@ -1809,6 +1849,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hub files"
+          }
+        }
+      }
+    },
+    "Mermaid Olarak Kopyala": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy as Mermaid"
+          }
+        }
+      }
+    },
+    "Mermaid diyagramı panoya kopyalandı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mermaid diagram copied to the clipboard"
           }
         }
       }

@@ -1,4 +1,5 @@
 import MapoCore
+import AppKit
 import Foundation
 import Observation
 
@@ -225,6 +226,54 @@ final class Workspace {
         map.highlight(Array(ids), label: String(localized: "Etki alanı · \(affected)"))
     }
 
+    // MARK: Export
+
+    /// Short confirmation shown over the map ("Copied…").
+    private(set) var toast: String?
+    @ObservationIgnored private var toastTask: Task<Void, Never>?
+
+    func showToast(_ text: String) {
+        toast = text
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2.2))
+            guard !Task.isCancelled else { return }
+            self?.toast = nil
+        }
+    }
+
+    /// Mermaid of what's on screen: the path being shown, else the selection.
+    var mermaid: String? {
+        guard let graph else { return nil }
+        if case .path(let r) = overlay { return MermaidExport.path(r, in: graph) }
+        guard let id = selectedID, let p = graph.position(of: id) else { return nil }
+        return MermaidExport.neighborhood(of: p, in: graph)
+    }
+
+    func copyMermaid() {
+        guard let text = mermaid else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        showToast(String(localized: "Mermaid diyagramı panoya kopyalandı"))
+    }
+
+    func exportImage() async {
+        guard let png = await map.snapshotPNG() else {
+            showToast(String(localized: "Görüntü alınamadı"))
+            return
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = "\(project.name) haritası.png"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try png.write(to: url, options: .atomic)
+            showToast(String(localized: "Görüntü kaydedildi"))
+        } catch {
+            showToast(error.localizedDescription)
+        }
+    }
+
     func clearOverlay() {
         overlay = nil
         map.clearHighlight()
@@ -270,6 +319,14 @@ final class Workspace {
                 beginPath(from: from)
                 isSearchPresented = d.bool(forKey: "mapoPalette")
                 if !isSearchPresented { showPath(to: hit.position) }
+            }
+            if let out = d.string(forKey: "mapoExportTo") {
+                try? await Task.sleep(for: .seconds(1.5))
+                if let png = await map.snapshotPNG() { try? png.write(to: URL(fileURLWithPath: out)) }
+            }
+            if d.bool(forKey: "mapoCopyMermaid") {
+                try? await Task.sleep(for: .seconds(1))
+                copyMermaid()
             }
             if d.bool(forKey: "mapoImpact"), let id = selectedID, let p = graph?.position(of: id) {
                 try? await Task.sleep(for: .seconds(1))

@@ -1614,6 +1614,18 @@ const api = {
     });
     if (best) zoomInto(best);
   },
+  /** PNG of the current view at screen resolution, on the canvas colour. */
+  snapshot: (): string => {
+    draw();
+    const out = document.createElement("canvas");
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const o = out.getContext("2d")!;
+    o.fillStyle = theme.canvas;
+    o.fillRect(0, 0, out.width, out.height);
+    o.drawImage(canvas, 0, 0);
+    return out.toDataURL("image/png");
+  },
   setLocale: (l: string) => {
     const next: Lang = l.toLowerCase().startsWith("tr") ? "tr" : "en";
     if (next === lang) return;

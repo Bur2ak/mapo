@@ -29,6 +29,14 @@ struct MapCommands: Commands {
             .keyboardShortcut("i", modifiers: [.command, .shift])
             .disabled(workspace?.selectedNode == nil)
 
+            Button("Mermaid Olarak Kopyala") { workspace?.copyMermaid() }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(workspace?.mermaid == nil)
+
+            Button("Görüntü Olarak Kaydet…") { Task { await workspace?.exportImage() } }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(workspace?.state != .ready)
+
             Divider()
 
             Button("Haritayı Güncelle") { workspace?.index() }
