@@ -2,6 +2,8 @@
 
 **A live map of your codebase — for you and for your AI agent.**
 
+[Website](https://bur2ak.github.io/mapo/) · [Download](https://github.com/Bur2ak/mapo/releases/latest) · `brew install --cask bur2ak/tap/mapo`
+
 Mapo is a native macOS app that turns a project into a map you can read at a
 glance: every ring is a folder, every circle a file, and the functions live
 inside them. Click anything to see what it uses and what uses it — across the
