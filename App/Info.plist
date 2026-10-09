@@ -15,7 +15,8 @@
 	<string>J3UQ3evwe5y/LNi08jKnp4gtnhhOWW+gG9YnozK5e7k=</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<!-- Saatte bir (Sparkle'ın en kısası): düzeltmeler aynı gün ulaşsın. -->
 	<key>SUScheduledCheckInterval</key>
-	<integer>86400</integer>
+	<integer>3600</integer>
 </dict>
 </plist>
