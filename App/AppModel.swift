@@ -225,7 +225,7 @@ final class AppModel {
             return
         }
         do {
-            selection = try await library.add(folder: target, name: String(localized: "Örnek: Kahve dükkânı")).id
+            selection = try await library.add(folder: target, name: "CoffeeShop").id  // agents see this name; the UI shows displayName
         } catch ProjectLibrary.LibraryError.alreadyAdded(let id) {
             selection = id
         } catch {

@@ -2,188 +2,397 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mapo — a live map of your codebase</title>
-<meta name="description" content="Mapo is a native macOS app that maps a codebase — folders, files, functions, HTTP routes and database tables — for you and your AI agent. Local, free, open source.">
+<meta name="description" content="Mapo is a free, open-source Mac app that maps your codebase — folders, files, functions, HTTP routes and database tables — for you and your AI agent. Runs locally.">
+<meta name="theme-color" content="#0B0D12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bur2ak.github.io/mapo/">
 <meta property="og:title" content="Mapo — a live map of your codebase">
-<meta property="og:description" content="See how a request travels from the app to the API to the database. Give your AI agent the same map.">
-<meta property="og:image" content="images/path.png">
-<link rel="icon" href="favicon.png">
+<meta property="og:description" content="Follow a request from the app to the API to the database. Give your AI agent the same map. Free, open source, local.">
+<meta property="og:image" content="https://bur2ak.github.io/mapo/images/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="images/icon.png">
+<link rel="apple-touch-icon" href="images/icon.png">
 <style>
 :root {
-  --bg: #F4F5F7; --surface: #FFFFFF; --ink: #1B2230; --muted: #5E6678; --line: #DCDFE5;
-  --accent: #C9821E; --accent-ink: #1B1407; --teal: #2E9C8F; --violet: #6E5FD6; --coral: #D85B4A; --blue: #2F6FD6;
+  --bg: #F5F6F8; --surface: #FFFFFF; --raised: #EEF0F4; --ink: #12161F; --muted: #5B6375; --line: #E2E5EB;
+  --accent: #C9821E; --accent-soft: rgba(201, 130, 30, .16); --on-accent: #1B1407;
+  --blue: #2F6FD6; --teal: #2E9C8F; --violet: #6E5FD6; --coral: #D85B4A;
+  --shadow: 0 30px 80px -30px rgba(18, 22, 31, .35), 0 8px 24px -12px rgba(18, 22, 31, .18);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0E1015; --surface: #171A21; --ink: #E6ECF7; --muted: #8C95A8; --line: #232733;
-    --accent: #F0AE47; --accent-ink: #1B1407; --teal: #4FC1B3; --violet: #9A8CF0; --coral: #F07E6E; --blue: #7FB2FF;
+    --bg: #0B0D12; --surface: #13161D; --raised: #1A1E27; --ink: #E8EDF7; --muted: #8B93A6; --line: #232834;
+    --accent: #F0AE47; --accent-soft: rgba(240, 174, 71, .14); --on-accent: #1B1407;
+    --blue: #7FB2FF; --teal: #4FC1B3; --violet: #9A8CF0; --coral: #F07E6E;
+    --shadow: 0 40px 100px -30px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .04);
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 80px; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  padding-inline: 20px;
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding-inline: max(20px, env(safe-area-inset-left));
 }
 a { color: inherit; }
-.wrap { max-width: 1080px; margin: 0 auto; }
-header { display: flex; align-items: center; justify-content: space-between; padding-block: 22px; gap: 16px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 19px; text-decoration: none; }
-.brand img { width: 32px; height: 32px; }
-nav { display: flex; gap: 20px; font-size: 15px; color: var(--muted); }
-nav a { text-decoration: none; }
-nav a:hover { color: var(--ink); }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { max-width: 1160px; margin: 0 auto; }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 
-.hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; padding-block: 40px 56px; }
-h1 { font-size: clamp(36px, 5.4vw, 58px); line-height: 1.04; letter-spacing: -0.025em; margin: 0 0 18px; text-wrap: balance; }
-h1 em { font-style: normal; color: var(--accent); }
-.lede { font-size: 19px; color: var(--muted); max-width: 34em; margin: 0 0 28px; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 16px; }
-.btn.primary { background: var(--accent); color: var(--accent-ink); }
-.btn.ghost { border: 1px solid var(--line); background: var(--surface); }
-.btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
-.small { font-size: 14px; color: var(--muted); margin-top: 14px; }
-code { font: 14px/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface); border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; }
-
-#mini { width: 100%; aspect-ratio: 1 / 0.86; display: block; cursor: pointer; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); touch-action: manipulation; }
-.caption { font-size: 14px; color: var(--muted); text-align: center; margin-top: 10px; min-height: 1.5em; }
-.caption b { color: var(--ink); font-weight: 600; }
-
-section { padding-block: 56px; border-top: 1px solid var(--line); }
-h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.015em; line-height: 1.15; margin: 0 0 14px; text-wrap: balance; }
-.lead { color: var(--muted); max-width: 40em; margin: 0 0 30px; }
-.shot { width: 100%; height: auto; display: block; border-radius: 14px; border: 1px solid var(--line); }
-.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-.features h3 { font-size: 18px; margin: 0 0 6px; }
-.features p { margin: 0; color: var(--muted); font-size: 16px; }
-.chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 26px; font: 15px/1 ui-monospace, "SF Mono", Menlo, monospace; }
-.chain span { padding: 8px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
-.chain i { font-style: normal; color: var(--accent); }
-table { width: 100%; border-collapse: collapse; font-size: 16px; }
-td, th { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { width: 9em; color: var(--muted); font-weight: 600; }
-.agents { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
-pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; overflow-x: auto; font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace; }
-pre .q { color: var(--muted); }
-pre .t { color: var(--accent); }
-footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
-
-@media (max-width: 860px) {
-  .hero, .agents, .features { grid-template-columns: minmax(0, 1fr); }
-  .small code { white-space: normal; word-break: break-word; }
-  nav { display: none; }
+.nav {
+  position: sticky; top: 0; z-index: 10; margin-inline: calc(-1 * max(20px, env(safe-area-inset-left)));
+  padding: calc(12px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-left)) 12px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.nav .wrap { display: flex; align-items: center; gap: 28px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-decoration: none; letter-spacing: -.01em; }
+.brand img { width: 30px; height: 30px; }
+.nav nav { display: flex; gap: 24px; font-size: 15px; color: var(--muted); margin-left: auto; }
+.nav nav a { text-decoration: none; }
+.nav nav a:hover { color: var(--ink); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 13px 22px; border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 16px; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease; white-space: nowrap; }
+.btn:hover { transform: translateY(-1px); }
+.btn:focus-visible, .copy:focus-visible, summary:focus-visible, .zoom:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.ghost { background: var(--surface); border-color: var(--line); }
+.btn.small { padding: 8px 14px; font-size: 14px; border-radius: 10px; }
+.btn svg { width: 18px; height: 18px; }
+
+.hero { text-align: center; padding-block: 88px 40px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); margin-bottom: 26px; }
+.eyebrow b { color: var(--accent); font-weight: 600; }
+h1 { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif; font-size: clamp(42px, 7vw, 84px); line-height: .98; letter-spacing: -.035em; margin: 0 auto 22px; max-width: 13ch; text-wrap: balance; font-weight: 800; }
+h1 em { font-style: normal; color: var(--accent); }
+.lede { font-size: clamp(18px, 2.1vw, 21px); color: var(--muted); max-width: 40em; margin: 0 auto 32px; text-wrap: balance; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+.cmd { display: inline-flex; align-items: center; gap: 10px; padding: 7px 7px 7px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; max-width: 100%; }
+.cmd code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd code::before { content: "$ "; color: var(--muted); }
+.copy { border: 0; background: var(--raised); color: var(--ink); border-radius: 8px; padding: 7px 11px; font: 600 13px -apple-system, sans-serif; cursor: pointer; flex: none; }
+.meta { font-size: 14px; color: var(--muted); margin-top: 18px; }
+
+.shot-hero { position: relative; margin: 60px auto 0; }
+.shot-hero::before { content: ""; position: absolute; inset: 6% 8% -8%; background: radial-gradient(closest-side, var(--accent-soft), transparent); filter: blur(40px); z-index: -1; }
+.frame { border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--surface); }
+.note { position: absolute; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 8px 13px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px -12px rgba(0,0,0,.45); white-space: nowrap; }
+.note i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.n1 { left: -2.5%; top: 30%; } .n2 { left: 34%; top: -3%; } .n3 { right: 32%; bottom: -3%; }
+
+.stack { padding-block: 44px 0; text-align: center; }
+.stack p { font-size: 14px; color: var(--muted); margin: 0 0 14px; }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 900px; margin: 0 auto; }
+.chips span { font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+
+section { padding-block: 104px; }
+.section-head { max-width: 720px; margin-bottom: 44px; }
+.section-head.center { margin-inline: auto; text-align: center; }
+.kicker { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+h2 { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif; font-size: clamp(30px, 4.2vw, 48px); line-height: 1.05; letter-spacing: -.028em; margin: 0 0 16px; text-wrap: balance; font-weight: 750; }
+h3 { font-size: 21px; margin: 0 0 10px; letter-spacing: -.012em; }
+.lead { color: var(--muted); font-size: 18px; margin: 0; }
+
+.read { display: grid; grid-template-columns: 1.1fr .9fr; gap: 56px; align-items: center; }
+#mini { width: 100%; aspect-ratio: 1 / .86; display: block; cursor: pointer; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); touch-action: manipulation; }
+.caption { font-size: 14px; color: var(--muted); text-align: center; margin-top: 12px; min-height: 1.6em; }
+.caption b { color: var(--ink); font-weight: 600; }
+.legend { list-style: none; padding: 0; margin: 30px 0 0; display: grid; gap: 16px; }
+.legend li { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: center; }
+.legend svg { width: 34px; height: 34px; }
+.legend b { display: block; font-size: 16px; }
+.legend span { color: var(--muted); font-size: 15px; }
+
+.row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; align-items: center; padding-block: 48px; }
+.row.flip { grid-template-columns: 1.4fr 1fr; }
+.row.flip .text { order: 2; }
+.row .text p { color: var(--muted); margin: 0 0 18px; }
+.row .text b { color: var(--ink); }
+.chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.chain span { font-family: ui-monospace, "SF Mono", Menlo, monospace; padding: 6px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.chain i { font-style: normal; color: var(--accent); }
+.keys { display: flex; flex-wrap: wrap; gap: 8px; }
+kbd { font: 600 13px -apple-system, sans-serif; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface); }
+.zoom { display: block; text-decoration: none; }
+
+.agents { display: grid; grid-template-columns: .9fr 1.1fr; gap: 32px; align-items: start; }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; overflow-x: auto; font-size: 13px; line-height: 1.7; box-shadow: var(--shadow); }
+pre .q { color: var(--ink); font-weight: 600; }
+pre .t { color: var(--accent); }
+pre .d { color: var(--muted); }
+.agent-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.agent-list span { font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 10px; background: var(--raised); }
+
+.band { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 60px clamp(24px, 5vw, 64px); }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+.grid4 svg { width: 28px; height: 28px; color: var(--accent); margin-bottom: 14px; }
+.grid4 h3 { font-size: 18px; }
+.grid4 p { margin: 0; color: var(--muted); font-size: 15px; }
+
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+.card h3 { margin: 0; }
+.card p { color: var(--muted); margin: 0; font-size: 15px; flex: 1; }
+.card p code { font-size: 13px; }
+.card .cmd { width: 100%; justify-content: space-between; }
+.card .cmd code { font-size: 12.5px; }
+.req { text-align: center; color: var(--muted); font-size: 14px; margin-top: 22px; }
+
+.faq { max-width: 820px; margin: 0 auto; }
+details { border-bottom: 1px solid var(--line); padding-block: 20px; }
+summary { cursor: pointer; font-weight: 600; font-size: 18px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 22px; line-height: 1; transition: transform .2s; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { color: var(--muted); margin: 12px 0 0; max-width: 68ch; }
+
+.final { text-align: center; padding-block: 110px 120px; }
+.final h2 { max-width: 16ch; margin-inline: auto; }
+footer { padding-block: 36px calc(48px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px 28px; justify-content: space-between; }
+footer a { text-decoration: none; }
+footer a:hover { color: var(--ink); }
+
+@media (max-width: 920px) {
+  .nav nav { display: none; }
+  .nav .btn { margin-left: auto; }
+  .read, .row, .row.flip, .agents { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .row.flip .text { order: 0; }
+  .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .note { display: none; }
+  section { padding-block: 68px; }
+  .hero { padding-block: 56px 20px; }
+}
+@media (max-width: 520px) {
+  .grid4 { grid-template-columns: minmax(0, 1fr); }
+  .hero .cmd { width: 100%; justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-  <a class="brand" href="#"><img src="images/icon.png" alt="" width="32" height="32">Mapo</a>
-  <nav aria-label="Sections">
-    <a href="#how">How it works</a>
-    <a href="#agents">For agents</a>
-    <a href="#stack">Supported stacks</a>
-    <a href="https://github.com/Bur2ak/mapo">GitHub</a>
-  </nav>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="images/icon.png" alt="" width="30" height="30">Mapo</a>
+    <nav aria-label="Sections">
+      <a href="#read">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#agents">For agents</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/Bur2ak/mapo">GitHub</a>
+    </nav>
+    <a class="btn primary small" href="https://github.com/Bur2ak/mapo/releases/latest">Download</a>
+  </div>
 </header>
 
-<div class="hero">
-  <div>
-    <h1>A live map of your codebase. <em>For you and your AI agent.</em></h1>
-    <p class="lede">Every ring is a folder, every circle a file, functions live inside. Click anything to see what it uses and what uses it — from the mobile app, through the API, down to the database.</p>
+<main class="wrap" id="top">
+  <div class="hero">
+    <div class="eyebrow"><b>0.3.0</b> HTTP and database links across your whole stack</div>
+    <h1>See how your code <em>actually connects.</em></h1>
+    <p class="lede">Mapo turns a codebase into a live map: every ring is a folder, every circle a file, functions live inside. Hover anything to see what it uses and what uses it — from the app, through the API, down to the database.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/Bur2ak/mapo/releases/latest">Download for Mac</a>
-      <a class="btn ghost" href="https://github.com/Bur2ak/mapo">Source on GitHub</a>
+      <a class="btn primary" href="https://github.com/Bur2ak/mapo/releases/latest">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9s-2-.9-3.4-.9c-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8s2 .8 3.4.8 2.2-1.3 3-2.5c1-1.4 1.4-2.8 1.4-2.9-.1 0-2.6-1-2.6-4.2zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5z"/></svg>
+        Download for Mac
+      </a>
+      <div class="cmd"><code>brew install --cask bur2ak/tap/mapo</code><button class="copy" type="button" data-copy="brew install --cask bur2ak/tap/mapo">Copy</button></div>
     </div>
-    <p class="small">Free and open source (Apache-2.0) · macOS 14+ on Apple silicon · or <code>brew install --cask bur2ak/tap/mapo</code></p>
-  </div>
-  <div>
-    <canvas id="mini" role="img" aria-label="Interactive example: a mobile app, an API and a database drawn as nested circles, with arrows from a function to the endpoint it calls and the table it writes."></canvas>
-    <p class="caption" id="caption">Hover a circle to see its links.</p>
-  </div>
-</div>
+    <p class="meta">Free and open source · macOS 14+ on Apple silicon · English &amp; Türkçe</p>
 
-<section id="how">
-  <h2>See how a request travels</h2>
-  <p class="lead">Mapo links client calls to the routes they hit, and routes to the tables they read and write. <b>Find path</b> shows the whole chain between any two pieces.</p>
-  <div class="chain" aria-label="Example chain">
-    <span>placeOrder</span><i>→</i><span>POST /api/orders</span><i>→</i><span>saveOrder</span><i>→</i><span>order_items</span>
-  </div>
-  <img class="shot" src="images/path.png" alt="Mapo showing the path from a mobile function to a database table, step by step in the inspector" width="1600" height="1000" loading="lazy">
-</section>
-
-<section>
-  <div class="features">
-    <div>
-      <h3>Know what breaks</h3>
-      <p><b>Impact</b> lists everything that depends on a file, function, endpoint or table — direct users first, then theirs.</p>
-    </div>
-    <div>
-      <h3>Always current</h3>
-      <p>The map updates when you save, commit or switch branches. Back and forward, search with ⌘K, jump to your editor.</p>
-    </div>
-    <div>
-      <h3>Stays on your Mac</h3>
-      <p>Analysis runs locally. No account, no upload, no telemetry. Works offline.</p>
+    <div class="shot-hero">
+      <a class="zoom frame" href="images/links.png"><img src="images/links.png" alt="Mapo showing a sample full-stack project. The function fetchMenu is selected: an orange arrow goes to the API route it calls, a blue arrow comes from the screen that calls it." width="1600" height="1000" fetchpriority="high"></a>
+      <div class="note n1"><i style="background:var(--teal)"></i>Rings are folders, circles are files</div>
+      <div class="note n2"><i style="background:var(--accent)"></i>Orange: what it uses</div>
+      <div class="note n3"><i style="background:var(--blue)"></i>Blue: what uses it</div>
     </div>
   </div>
-</section>
 
-<section id="agents">
-  <div class="agents">
-    <div>
-      <h2>Give your agent the map</h2>
-      <p class="lead">Connect Claude Code, Codex, Cursor or Claude Desktop in one click. Instead of grepping, your agent asks the map — and gets file paths and line numbers back.</p>
+  <div class="stack">
+    <p>Understands the stack you already use</p>
+    <div class="chips">
+      <span>TypeScript</span><span>Python</span><span>Swift</span><span>Go</span><span>Rust</span><span>Java</span>
+      <span>Next.js</span><span>Hono</span><span>Express</span><span>Fastify</span><span>Cloudflare Workers</span>
+      <span>FastAPI</span><span>Django</span><span>Flask</span><span>tRPC</span>
+      <span>Prisma</span><span>Drizzle</span><span>Supabase</span><span>Postgres · SQLite · D1</span>
     </div>
-<pre><span class="q">› which endpoints write the orders table?</span>
+  </div>
+
+  <section id="read">
+    <div class="read">
+      <div>
+        <canvas id="mini" role="img" aria-label="Interactive example of a Mapo map: a mobile app, an API and a database drawn as nested circles. Hover or tap a circle to see its links."></canvas>
+        <p class="caption" id="caption">Hover a circle to see its links.</p>
+      </div>
+      <div>
+        <div class="kicker">Read it in ten seconds</div>
+        <h2>A map you already know how to read.</h2>
+        <p class="lead">No graph theory, no spaghetti. Folders are places, files are buildings, and the roads only appear when you ask.</p>
+        <ul class="legend">
+          <li><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15" fill="none" stroke="var(--teal)" stroke-width="2"/></svg><div><b>Rings are folders</b><span>Click one to go inside. ⌘↑ takes you back up.</span></div></li>
+          <li><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="10" fill="var(--violet)"/></svg><div><b>Circles are files</b><span>The bigger the circle, the longer the file. Functions sit inside.</span></div></li>
+          <li><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 24 Q17 4 30 12" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><path d="M30 12 l-7 -1 l3 6 z" fill="var(--accent)"/></svg><div><b>Orange arrows: what it uses</b><span>Calls, imports, HTTP requests, table reads and writes.</span></div></li>
+          <li><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M30 24 Q17 4 4 12" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"/><path d="M4 12 l7 -1 l-3 6 z" fill="var(--blue)"/></svg><div><b>Blue arrows: what uses it</b><span>Everything that would notice if you changed it.</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="section-head">
+      <div class="kicker">Features</div>
+      <h2>Questions you ask every day, answered on the map.</h2>
+    </div>
+
+    <div class="row">
+      <div class="text">
+        <h3>Follow a request end to end</h3>
+        <p>Mapo links client calls to the routes they hit, and routes to the tables they read and write. <b>Find path</b> shows the whole chain between any two pieces, step by step.</p>
+        <div class="chain" aria-label="Example chain"><span>placeOrder</span><i>→</i><span>POST /api/orders</span><i>→</i><span>saveOrder</span><i>→</i><span>order_items</span></div>
+      </div>
+      <a class="zoom frame" href="images/path-light.png"><img src="images/path-light.png" alt="Find path in light mode: from placeOrder in the mobile app, through the POST /api/orders route and saveOrder, to the order_items table" width="1600" height="1000" loading="lazy"></a>
+    </div>
+
+    <div class="row flip">
+      <div class="text">
+        <h3>Know what breaks before you change it</h3>
+        <p><b>Impact</b> lists everything that depends on a file, function, endpoint or table — direct users first, then theirs. Copy it as a Mermaid diagram for your pull request.</p>
+        <div class="keys"><kbd>⇧⌘I</kbd> <kbd>⇧⌘M</kbd></div>
+      </div>
+      <a class="zoom frame" href="images/impact.png"><img src="images/impact.png" alt="Impact of saveOrder: six places may be affected, listed by distance in the inspector" width="1600" height="1000" loading="lazy"></a>
+    </div>
+
+    <div class="row">
+      <div class="text">
+        <h3>Find anything in a keystroke</h3>
+        <p>Search understands camelCase — <code>plOrd</code> finds <code>placeOrder</code>. Files, functions, types, endpoints and tables — Return flies there, ⌘Return opens your editor at the right line.</p>
+        <div class="keys"><kbd>⌘K</kbd> <kbd>⌘[</kbd> <kbd>⌘]</kbd> <kbd>⌘↑</kbd></div>
+      </div>
+      <a class="zoom frame" href="images/search.png"><img src="images/search.png" alt="The ⌘K search palette listing types, functions, tables and files that match 'order'" width="1600" height="1000" loading="lazy"></a>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="section-head">
+      <div class="kicker">For AI agents</div>
+      <h2>Give your agent the map, not a grep.</h2>
+      <p class="lead">Connect Claude Code, Codex, Cursor or Claude Desktop in one click. Your agent asks the map who calls what and what a change touches — and gets file paths and line numbers back.</p>
+      <div class="agent-list"><span>Claude Code</span><span>Codex</span><span>Cursor</span><span>Claude Desktop</span></div>
+    </div>
+    <div class="agents">
+      <a class="zoom frame" href="images/agents.png"><img src="images/agents.png" alt="Mapo's Integrations settings with Connect buttons for Claude Code, Codex, Cursor and Claude Desktop" width="900" height="720" loading="lazy"></a>
+<pre aria-label="Example answers from Mapo's MCP tools, on the sample project"><span class="q">› Which code writes the orders table?</span>
 <span class="t">mapo_node</span> orders
-  Written by (2):
-    function saveOrder   apps/api/src/lib/db.ts:16
-    route PATCH /api/orders/:id/status   routes/orders.ts:23
+<span class="d">table orders  apps/api/migrations/0001_init.sql:8</span>
+Read by (1):
+  route GET /api/orders/:id  apps/api/src/routes/orders.ts:17
+Written by (2):
+  function saveOrder  apps/api/src/lib/db.ts:17
+  route PATCH /api/orders/:id/status  apps/api/src/routes/orders.ts:22
 
-<span class="q">› who calls placeOrder?</span>
-<span class="t">mapo_callers</span> placeOrder
-  function MenuScreen   apps/mobile/app/menu/index.tsx:7</pre>
+<span class="q">› What does the API expose, and who calls it?</span>
+<span class="t">mapo_endpoints</span> /api/
+  route GET /api/menu  routes/menu.ts:7  ← 1 caller: fetchMenu
+  route POST /api/orders  routes/orders.ts:9  ← 1 caller: placeOrder
+  route GET /api/orders/:id  routes/orders.ts:17  ← 1 caller: fetchOrder
+
+<span class="q">› What breaks if I change saveOrder?</span>
+<span class="t">mapo_impact</span> saveOrder
+Distance 1 (2):
+  route POST /api/orders  apps/api/src/routes/orders.ts:9
+Distance 2 (2):
+  function placeOrder  apps/mobile/lib/api.ts:21</pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="band">
+      <div class="section-head center">
+        <div class="kicker">Private by design</div>
+        <h2>Your code never leaves your Mac.</h2>
+      </div>
+      <div class="grid4">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><h3>Runs locally</h3><p>Analysis happens on your machine. Works offline.</p></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><h3>No account</h3><p>Download and open. Nothing to sign up for.</p></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><h3>No telemetry</h3><p>No analytics. Mapo only checks GitHub for updates.</p></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg><h3>Open source</h3><p>Apache-2.0. Read every line on GitHub.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="section-head center">
+      <div class="kicker">Install</div>
+      <h2>Up and running in a minute.</h2>
+      <p class="lead">Open the sample project on first launch to see it work in ten seconds, then drop in your own folder or pick a GitHub repository.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3>Download</h3>
+        <p>Signed and notarized by Apple. Mapo keeps itself up to date.</p>
+        <a class="btn primary" href="https://github.com/Bur2ak/mapo/releases/latest">Download .dmg</a>
+      </div>
+      <div class="card">
+        <h3>Homebrew</h3>
+        <p>One command; <code>brew upgrade</code> knows about it.</p>
+        <div class="cmd"><code>brew install --cask bur2ak/tap/mapo</code><button class="copy" type="button" data-copy="brew install --cask bur2ak/tap/mapo">Copy</button></div>
+      </div>
+      <div class="card">
+        <h3>Build from source</h3>
+        <p>Swift, SwiftUI and a small TypeScript map. Xcode 16 and XcodeGen.</p>
+        <a class="btn ghost" href="https://github.com/Bur2ak/mapo#build-from-source">Read the guide</a>
+      </div>
+    </div>
+    <p class="req">macOS 14 Sonoma or later · Apple silicon (M1 and newer)</p>
+  </section>
+
+  <section id="faq">
+    <div class="section-head center"><h2>Questions</h2></div>
+    <div class="faq">
+      <details><summary>Is it really free?</summary><p>Yes. Mapo is open source under Apache-2.0, with no paid tier and no account.</p></details>
+      <details><summary>Which languages and frameworks does it understand?</summary><p>Code structure comes from graphify (TypeScript, JavaScript, Python, Swift, Go, Rust, Java, Kotlin and more). On top of that, Mapo links HTTP calls to routes in Hono, Express, Fastify, Koa, Elysia, Next.js, Cloudflare Workers, FastAPI, Flask and Django; tRPC procedures to their callers; and code to tables in SQL migrations, Prisma, Drizzle and Supabase.</p></details>
+      <details><summary>How accurate are the HTTP and database links?</summary><p>They are inferred from code patterns and marked as inferred. Every link points at the line it came from, so checking one takes a click. On a 470-file production app, every client call in the app matched its server route.</p></details>
+      <details><summary>How big a project can it handle?</summary><p>cal.com — over 5,000 files and 100,000 links — maps in about two minutes on an M-series Mac. After that the map updates in the background as you work.</p></details>
+      <details><summary>Does it work with my editor?</summary><p>Double-click opens the file at the right line in VS Code, Cursor, Windsurf, Zed, Xcode, Sublime Text or your default app.</p></details>
+      <details><summary>What about Intel Macs, Windows or Linux?</summary><p>Not yet. Mapo is a native Mac app for Apple silicon today.</p></details>
+    </div>
+  </section>
+
+  <div class="final">
+    <h2>Stop guessing what your change touches.</h2>
+    <div class="cta" style="margin-top:28px">
+      <a class="btn primary" href="https://github.com/Bur2ak/mapo/releases/latest">Download for Mac</a>
+      <a class="btn ghost" href="https://github.com/Bur2ak/mapo">Star on GitHub</a>
+    </div>
   </div>
-</section>
 
-<section id="stack">
-  <h2>Understands your stack</h2>
-  <p class="lead">Cross-boundary links are inferred from code patterns and labelled as such — every one points at the line it came from.</p>
-  <table>
-    <tr><th>Languages</th><td>TypeScript, JavaScript, Python, Swift, Go, Rust, Java, Kotlin and more</td></tr>
-    <tr><th>HTTP</th><td>Hono, Express, Fastify, Koa, Elysia, Next.js, Cloudflare Workers and service bindings, FastAPI, Flask, Django · clients via fetch, axios, ky, your own wrappers, requests, httpx</td></tr>
-    <tr><th>RPC</th><td>tRPC routers and hooks</td></tr>
-    <tr><th>Databases</th><td>SQL migrations (Postgres, SQLite, D1), Prisma, Drizzle, Supabase</td></tr>
-  </table>
-</section>
-
-<section>
-  <img class="shot" src="images/table.png" alt="Mapo in light mode showing a database table, the endpoints that read it and the functions that write it" width="1600" height="1000" loading="lazy">
-</section>
-
-<footer>
-  <span>Mapo · Apache-2.0 · built on <a href="https://github.com/Graphify-Labs/graphify">graphify</a></span>
-  <span><a href="https://github.com/Bur2ak/mapo/issues">Feedback &amp; issues</a></span>
-</footer>
-</div>
+  <footer>
+    <span>Mapo · Apache-2.0 · analysis by <a href="https://github.com/Graphify-Labs/graphify">graphify</a></span>
+    <span><a href="https://github.com/Bur2ak/mapo/releases">Releases</a> · <a href="https://github.com/Bur2ak/mapo/issues">Feedback</a> · <a href="https://github.com/Bur2ak/mapo">Source</a></span>
+  </footer>
+</main>
 
 <script>
-// A small live map in Mapo's own language: rings are folders, discs are
-// files; hovering (or tapping) a file shows its links like the app does.
+for (const b of document.querySelectorAll(".copy")) {
+  b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; }
+    catch { b.textContent = "Select it"; }
+    setTimeout(() => (b.textContent = "Copy"), 1600);
+  });
+}
+
+// A small live map in Mapo's own language: hover or tap a file to see its links.
 (() => {
   const canvas = document.getElementById("mini");
   const caption = document.getElementById("caption");
   const ctx = canvas.getContext("2d");
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // Coordinates in a 100 × 86 box.
   const regions = [
     { name: "apps/mobile", c: "--violet", x: 23, y: 30, r: 19 },
     { name: "apps/api", c: "--teal", x: 70, y: 45, r: 26 },
@@ -191,9 +400,9 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var
   ];
   const F = (id, label, region, x, y, r) => ({ id, label, region, x, y, r });
   const files = [
-    F("menu", "MenuScreen", 0, 16, 24, 6), F("order", "OrderScreen", 0, 29, 22, 5), F("api", "api.ts · placeOrder", 0, 22, 38, 7),
-    F("routes", "POST /api/orders", 1, 58, 38, 8), F("db", "db.ts · saveOrder", 1, 79, 36, 8), F("loyalty", "loyalty.ts", 1, 77, 58, 7), F("index", "index.ts", 1, 61, 57, 6),
-    F("orders", "orders (table)", 2, 21, 66, 6), F("items", "order_items (table)", 2, 31, 71, 5),
+    F("menu", "MenuScreen", 0, 16, 24, 6), F("order", "OrderScreen", 0, 29, 22, 5), F("api", "placeOrder", 0, 22, 38, 7),
+    F("routes", "POST /api/orders", 1, 58, 38, 8), F("db", "saveOrder", 1, 79, 36, 8), F("loyalty", "addPoints", 1, 77, 58, 7), F("index", "index.ts", 1, 61, 57, 6),
+    F("orders", "orders", 2, 21, 66, 6), F("items", "order_items", 2, 31, 71, 5),
   ];
   const links = { menu: ["api"], order: ["api"], api: ["routes"], routes: ["db", "loyalty"], db: ["orders", "items"], loyalty: [], index: ["routes"], orders: [], items: [] };
   const usedBy = {};
@@ -234,8 +443,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var
       ctx.fillText(g.name.toUpperCase(), P(g.x), P(g.y - g.r) + Math.max(12, P(2.9)));
     }
     for (const f of files) {
-      const c = css(regions[f.region].c);
-      circle(f.x, f.y, f.r); ctx.fillStyle = c; ctx.globalAlpha = lit.has(f.id) ? 1 : 0.28; ctx.fill(); ctx.globalAlpha = 1;
+      circle(f.x, f.y, f.r); ctx.fillStyle = css(regions[f.region].c); ctx.globalAlpha = lit.has(f.id) ? 1 : 0.28; ctx.fill(); ctx.globalAlpha = 1;
     }
     const h = files.find((f) => f.id === hover);
     for (const id of usedBy[hover] || []) arrow(files.find((f) => f.id === id), h, css("--blue"));
@@ -260,7 +468,7 @@ footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var
   canvas.addEventListener("pointerdown", pick);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
   new ResizeObserver(size).observe(canvas);
-  caption.innerHTML = "<b>api.ts · placeOrder</b> · uses 1 · used by 2 — hover another circle";
+  caption.innerHTML = "<b>placeOrder</b> · uses 1 · used by 2 — hover another circle";
 })();
 </script>
 </body>

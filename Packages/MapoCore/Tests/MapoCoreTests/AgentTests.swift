@@ -247,3 +247,16 @@ struct AgentIntegrationTests {
         #expect(AgentIntegrations.tomlString(#"/a "b"\c"#) == #""/a \"b\"\\c""#)
     }
 }
+
+/// Prints real MCP answers for docs: `MAPO_MCP_DEMO=<data dir> swift test --filter mcpDemo`
+@Test func mcpDemo() throws {
+    guard let dir = ProcessInfo.processInfo.environment["MAPO_MCP_DEMO"] else { return }
+    let s = MCPServer(paths: MapoPaths(base: URL(fileURLWithPath: dir)), version: "demo")
+    for (tool, args) in [("mapo_node", ["symbol": "orders"]), ("mapo_endpoints", ["query": "/api/"]), ("mapo_impact", ["symbol": "saveOrder", "depth": 2] as [String: Any])] {
+        let msg: [String: Any] = ["jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": ["name": tool, "arguments": args]]
+        let line = String(decoding: try JSONSerialization.data(withJSONObject: msg), as: UTF8.self)
+        let reply = try JSONSerialization.jsonObject(with: Data(s.handle(line: line)!.utf8)) as! [String: Any]
+        let text = (((reply["result"] as! [String: Any])["content"] as! [[String: Any]])[0]["text"] as! String)
+        print("=== \(tool)\n\(text)")
+    }
+}

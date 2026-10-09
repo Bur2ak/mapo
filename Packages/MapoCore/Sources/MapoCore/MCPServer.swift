@@ -312,9 +312,9 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     private func freshness(_ p: Project, _ g: Graph) -> String {
-        let commit = p.lastIndex?.commit.map { String($0.prefix(7)) } ?? "?"
-        let when = p.lastIndex.map { Self.iso($0.finishedAt) } ?? "?"
-        return "freshness: map of \(p.name) built \(when) at commit \(commit) (\(g.nodes.count) nodes). Verify in source before editing."
+        let commit = p.lastIndex?.commit.map { " at commit " + $0.prefix(7) } ?? ""
+        let when = p.lastIndex.map { " built " + Self.iso($0.finishedAt) } ?? ""
+        return "freshness: map of \(p.name)\(when)\(commit) (\(g.nodes.count) nodes). Verify in source before editing."
     }
 
     // MARK: - Formatting
