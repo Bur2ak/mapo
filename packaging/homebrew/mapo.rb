@@ -11,7 +11,7 @@ cask "mapo" do
 
   livecheck do
     url "https://github.com/Bur2ak/mapo/releases/latest/download/appcast.xml"
-    strategy :sparkle
+    strategy :sparkle, &:short_version
   end
 
   auto_updates true
