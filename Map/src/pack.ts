@@ -129,6 +129,9 @@ let highlight: { set: Set<Circle>; chain: Circle[] | null } | null = null;
 
 const cam = { x: 500, y: 500, k: 1 };
 let camReady = false;
+/** The view is the automatic "whole project" fit, untouched by the user:
+ *  keep it fitted when the window (or the inspector) changes size. */
+let autoFit = false;
 let W = 0, H = 0, dpr = 1;
 
 /** A file shows its symbols once drawn at least this wide (px radius). */
@@ -557,6 +560,7 @@ function kLimits() {
 let anim: number | null = null;
 
 function animateTo(target: { x: number; y: number; k: number }, ms = duration()) {
+  autoFit = false;
   if (anim) cancelAnimationFrame(anim);
   const lim = kLimits();
   target.k = Math.max(lim.min, Math.min(lim.max, target.k));
@@ -580,13 +584,18 @@ function animateTo(target: { x: number; y: number; k: number }, ms = duration())
 }
 
 function fitCircle(c: Circle, fill = 0.9, animate = true) {
-  if (!W || !H) return;
+  // No size yet (the web view isn't laid out): fit when the size arrives.
+  if (!W || !H) {
+    autoFit = c === root;
+    return;
+  }
   const target = { x: c.x, y: c.y, k: (Math.min(W, H) * fill) / (2 * c.r) };
   if (animate) animateTo(target);
   else {
     Object.assign(cam, target);
     requestDraw();
   }
+  autoFit = c === root;
 }
 
 /** Frames several circles; `focusOn` never ends up larger than ~1/3 of the view. */
@@ -626,7 +635,7 @@ function resize() {
   H = canvas.clientHeight;
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
-  if (root && !camReady) {
+  if (root && (!camReady || autoFit)) {
     fitCircle(root, 0.94, false);
     camReady = true;
   }
@@ -1367,6 +1376,7 @@ canvas.addEventListener("pointermove", (e) => {
       if (anim) cancelAnimationFrame(anim);
     }
     if (drag.moved) {
+      autoFit = false;
       cam.x = drag.cx - dx / cam.k;
       cam.y = drag.cy - dy / cam.k;
       releaseZoomDir();
@@ -1429,6 +1439,7 @@ canvas.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
+    autoFit = false;
     hideTip();
     if (anim) {
       cancelAnimationFrame(anim);

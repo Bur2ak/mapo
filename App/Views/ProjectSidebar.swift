@@ -76,7 +76,7 @@ private struct ProjectRow: View {
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(project.name)
+                Text(project.displayName)
                     .lineLimit(1)
                 Text(detail)
                     .font(.caption)

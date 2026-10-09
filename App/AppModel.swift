@@ -327,3 +327,11 @@ struct AlertMessage: Identifiable {
         message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 }
+
+extension Project {
+    /// What the UI calls the project. The bundled sample is named in the
+    /// current language, whatever language it was added in.
+    var displayName: String {
+        rootPath.hasSuffix("/Sample/CoffeeShop") ? String(localized: "Örnek: Kahve dükkânı") : name
+    }
+}

@@ -16,7 +16,7 @@ struct MenuBarContent: View {
                 model.selection = project.id
                 showWindow()
             } label: {
-                Text("\(project.name) — \(status(project))")
+                Text("\(project.displayName) — \(status(project))")
             }
         }
         Divider()

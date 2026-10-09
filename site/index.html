@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapo — a live map of your codebase</title>
+<meta name="description" content="Mapo is a native macOS app that maps a codebase — folders, files, functions, HTTP routes and database tables — for you and your AI agent. Local, free, open source.">
+<meta property="og:title" content="Mapo — a live map of your codebase">
+<meta property="og:description" content="See how a request travels from the app to the API to the database. Give your AI agent the same map.">
+<meta property="og:image" content="images/path.png">
+<link rel="icon" href="favicon.png">
+<style>
+:root {
+  --bg: #F4F5F7; --surface: #FFFFFF; --ink: #1B2230; --muted: #5E6678; --line: #DCDFE5;
+  --accent: #C9821E; --accent-ink: #1B1407; --teal: #2E9C8F; --violet: #6E5FD6; --coral: #D85B4A; --blue: #2F6FD6;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0E1015; --surface: #171A21; --ink: #E6ECF7; --muted: #8C95A8; --line: #232733;
+    --accent: #F0AE47; --accent-ink: #1B1407; --teal: #4FC1B3; --violet: #9A8CF0; --coral: #F07E6E; --blue: #7FB2FF;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  padding-inline: 20px;
+}
+a { color: inherit; }
+.wrap { max-width: 1080px; margin: 0 auto; }
+header { display: flex; align-items: center; justify-content: space-between; padding-block: 22px; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 19px; text-decoration: none; }
+.brand img { width: 32px; height: 32px; }
+nav { display: flex; gap: 20px; font-size: 15px; color: var(--muted); }
+nav a { text-decoration: none; }
+nav a:hover { color: var(--ink); }
+
+.hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; padding-block: 40px 56px; }
+h1 { font-size: clamp(36px, 5.4vw, 58px); line-height: 1.04; letter-spacing: -0.025em; margin: 0 0 18px; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--accent); }
+.lede { font-size: 19px; color: var(--muted); max-width: 34em; margin: 0 0 28px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 16px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { border: 1px solid var(--line); background: var(--surface); }
+.btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.small { font-size: 14px; color: var(--muted); margin-top: 14px; }
+code { font: 14px/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface); border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; }
+
+#mini { width: 100%; aspect-ratio: 1 / 0.86; display: block; cursor: pointer; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); touch-action: manipulation; }
+.caption { font-size: 14px; color: var(--muted); text-align: center; margin-top: 10px; min-height: 1.5em; }
+.caption b { color: var(--ink); font-weight: 600; }
+
+section { padding-block: 56px; border-top: 1px solid var(--line); }
+h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.015em; line-height: 1.15; margin: 0 0 14px; text-wrap: balance; }
+.lead { color: var(--muted); max-width: 40em; margin: 0 0 30px; }
+.shot { width: 100%; height: auto; display: block; border-radius: 14px; border: 1px solid var(--line); }
+.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.features h3 { font-size: 18px; margin: 0 0 6px; }
+.features p { margin: 0; color: var(--muted); font-size: 16px; }
+.chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 26px; font: 15px/1 ui-monospace, "SF Mono", Menlo, monospace; }
+.chain span { padding: 8px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+.chain i { font-style: normal; color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 16px; }
+td, th { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { width: 9em; color: var(--muted); font-weight: 600; }
+.agents { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; overflow-x: auto; font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace; }
+pre .q { color: var(--muted); }
+pre .t { color: var(--accent); }
+footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+
+@media (max-width: 860px) {
+  .hero, .agents, .features { grid-template-columns: minmax(0, 1fr); }
+  .small code { white-space: normal; word-break: break-word; }
+  nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="#"><img src="images/icon.png" alt="" width="32" height="32">Mapo</a>
+  <nav aria-label="Sections">
+    <a href="#how">How it works</a>
+    <a href="#agents">For agents</a>
+    <a href="#stack">Supported stacks</a>
+    <a href="https://github.com/Bur2ak/mapo">GitHub</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div>
+    <h1>A live map of your codebase. <em>For you and your AI agent.</em></h1>
+    <p class="lede">Every ring is a folder, every circle a file, functions live inside. Click anything to see what it uses and what uses it — from the mobile app, through the API, down to the database.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/Bur2ak/mapo/releases/latest">Download for Mac</a>
+      <a class="btn ghost" href="https://github.com/Bur2ak/mapo">Source on GitHub</a>
+    </div>
+    <p class="small">Free and open source (Apache-2.0) · macOS 14+ on Apple silicon · or <code>brew install --cask bur2ak/tap/mapo</code></p>
+  </div>
+  <div>
+    <canvas id="mini" role="img" aria-label="Interactive example: a mobile app, an API and a database drawn as nested circles, with arrows from a function to the endpoint it calls and the table it writes."></canvas>
+    <p class="caption" id="caption">Hover a circle to see its links.</p>
+  </div>
+</div>
+
+<section id="how">
+  <h2>See how a request travels</h2>
+  <p class="lead">Mapo links client calls to the routes they hit, and routes to the tables they read and write. <b>Find path</b> shows the whole chain between any two pieces.</p>
+  <div class="chain" aria-label="Example chain">
+    <span>placeOrder</span><i>→</i><span>POST /api/orders</span><i>→</i><span>saveOrder</span><i>→</i><span>order_items</span>
+  </div>
+  <img class="shot" src="images/path.png" alt="Mapo showing the path from a mobile function to a database table, step by step in the inspector" width="1600" height="1000" loading="lazy">
+</section>
+
+<section>
+  <div class="features">
+    <div>
+      <h3>Know what breaks</h3>
+      <p><b>Impact</b> lists everything that depends on a file, function, endpoint or table — direct users first, then theirs.</p>
+    </div>
+    <div>
+      <h3>Always current</h3>
+      <p>The map updates when you save, commit or switch branches. Back and forward, search with ⌘K, jump to your editor.</p>
+    </div>
+    <div>
+      <h3>Stays on your Mac</h3>
+      <p>Analysis runs locally. No account, no upload, no telemetry. Works offline.</p>
+    </div>
+  </div>
+</section>
+
+<section id="agents">
+  <div class="agents">
+    <div>
+      <h2>Give your agent the map</h2>
+      <p class="lead">Connect Claude Code, Codex, Cursor or Claude Desktop in one click. Instead of grepping, your agent asks the map — and gets file paths and line numbers back.</p>
+    </div>
+<pre><span class="q">› which endpoints write the orders table?</span>
+<span class="t">mapo_node</span> orders
+  Written by (2):
+    function saveOrder   apps/api/src/lib/db.ts:16
+    route PATCH /api/orders/:id/status   routes/orders.ts:23
+
+<span class="q">› who calls placeOrder?</span>
+<span class="t">mapo_callers</span> placeOrder
+  function MenuScreen   apps/mobile/app/menu/index.tsx:7</pre>
+  </div>
+</section>
+
+<section id="stack">
+  <h2>Understands your stack</h2>
+  <p class="lead">Cross-boundary links are inferred from code patterns and labelled as such — every one points at the line it came from.</p>
+  <table>
+    <tr><th>Languages</th><td>TypeScript, JavaScript, Python, Swift, Go, Rust, Java, Kotlin and more</td></tr>
+    <tr><th>HTTP</th><td>Hono, Express, Fastify, Koa, Elysia, Next.js, Cloudflare Workers and service bindings, FastAPI, Flask, Django · clients via fetch, axios, ky, your own wrappers, requests, httpx</td></tr>
+    <tr><th>RPC</th><td>tRPC routers and hooks</td></tr>
+    <tr><th>Databases</th><td>SQL migrations (Postgres, SQLite, D1), Prisma, Drizzle, Supabase</td></tr>
+  </table>
+</section>
+
+<section>
+  <img class="shot" src="images/table.png" alt="Mapo in light mode showing a database table, the endpoints that read it and the functions that write it" width="1600" height="1000" loading="lazy">
+</section>
+
+<footer>
+  <span>Mapo · Apache-2.0 · built on <a href="https://github.com/Graphify-Labs/graphify">graphify</a></span>
+  <span><a href="https://github.com/Bur2ak/mapo/issues">Feedback &amp; issues</a></span>
+</footer>
+</div>
+
+<script>
+// A small live map in Mapo's own language: rings are folders, discs are
+// files; hovering (or tapping) a file shows its links like the app does.
+(() => {
+  const canvas = document.getElementById("mini");
+  const caption = document.getElementById("caption");
+  const ctx = canvas.getContext("2d");
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Coordinates in a 100 × 86 box.
+  const regions = [
+    { name: "apps/mobile", c: "--violet", x: 23, y: 30, r: 19 },
+    { name: "apps/api", c: "--teal", x: 70, y: 45, r: 26 },
+    { name: "migrations", c: "--coral", x: 26, y: 68, r: 14 },
+  ];
+  const F = (id, label, region, x, y, r) => ({ id, label, region, x, y, r });
+  const files = [
+    F("menu", "MenuScreen", 0, 16, 24, 6), F("order", "OrderScreen", 0, 29, 22, 5), F("api", "api.ts · placeOrder", 0, 22, 38, 7),
+    F("routes", "POST /api/orders", 1, 58, 38, 8), F("db", "db.ts · saveOrder", 1, 79, 36, 8), F("loyalty", "loyalty.ts", 1, 77, 58, 7), F("index", "index.ts", 1, 61, 57, 6),
+    F("orders", "orders (table)", 2, 21, 66, 6), F("items", "order_items (table)", 2, 31, 71, 5),
+  ];
+  const links = { menu: ["api"], order: ["api"], api: ["routes"], routes: ["db", "loyalty"], db: ["orders", "items"], loyalty: [], index: ["routes"], orders: [], items: [] };
+  const usedBy = {};
+  for (const [a, bs] of Object.entries(links)) for (const b of bs) (usedBy[b] ||= []).push(a);
+  let hover = "api", t = 1, W = 0, H = 0, s = 1;
+
+  function size() {
+    const r = canvas.getBoundingClientRect(), d = devicePixelRatio || 1;
+    W = r.width; H = r.height; s = W / 100;
+    canvas.width = Math.round(W * d); canvas.height = Math.round(H * d);
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    draw();
+  }
+  const P = (v) => v * s;
+  function circle(x, y, r) { ctx.beginPath(); ctx.arc(P(x), P(y), P(r), 0, Math.PI * 2); }
+  function arrow(a, b, color) {
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+    const ax = a.x + dx / d * (a.r + 0.8), ay = a.y + dy / d * (a.r + 0.8);
+    const bx = b.x - dx / d * (b.r + 1.6), by = b.y - dy / d * (b.r + 1.6);
+    const mx = (ax + bx) / 2 - (by - ay) * 0.18, my = (ay + by) / 2 + (bx - ax) * 0.18;
+    const ex = ax + (bx - ax) * t, ey = ay + (by - ay) * t;
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(P(ax), P(ay));
+    ctx.quadraticCurveTo(P(mx * t + ax * (1 - t)), P(my * t + ay * (1 - t)), P(ex), P(ey)); ctx.stroke();
+    if (t < 1) return;
+    const ang = Math.atan2(by - my, bx - mx), L = 9;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(P(bx), P(by));
+    ctx.lineTo(P(bx) - L * Math.cos(ang - 0.45), P(by) - L * Math.sin(ang - 0.45));
+    ctx.lineTo(P(bx) - L * Math.cos(ang + 0.45), P(by) - L * Math.sin(ang + 0.45)); ctx.fill();
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const lit = new Set([hover, ...(links[hover] || []), ...(usedBy[hover] || [])]);
+    for (const g of regions) {
+      const c = css(g.c);
+      circle(g.x, g.y, g.r); ctx.fillStyle = c + "22"; ctx.fill(); ctx.strokeStyle = c + "88"; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = c; ctx.font = `700 ${Math.max(10, P(2.1))}px -apple-system, sans-serif`; ctx.textAlign = "center";
+      ctx.fillText(g.name.toUpperCase(), P(g.x), P(g.y - g.r) + Math.max(12, P(2.9)));
+    }
+    for (const f of files) {
+      const c = css(regions[f.region].c);
+      circle(f.x, f.y, f.r); ctx.fillStyle = c; ctx.globalAlpha = lit.has(f.id) ? 1 : 0.28; ctx.fill(); ctx.globalAlpha = 1;
+    }
+    const h = files.find((f) => f.id === hover);
+    for (const id of usedBy[hover] || []) arrow(files.find((f) => f.id === id), h, css("--blue"));
+    for (const id of links[hover] || []) arrow(h, files.find((f) => f.id === id), css("--accent"));
+    circle(h.x, h.y, h.r + 1.3); ctx.strokeStyle = css("--accent"); ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  function pick(e) {
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) / s, y = (e.clientY - r.top) / s;
+    const f = files.find((f) => Math.hypot(f.x - x, f.y - y) <= f.r + 1);
+    if (!f || f.id === hover) return;
+    hover = f.id;
+    const uses = (links[f.id] || []).length, by = (usedBy[f.id] || []).length;
+    caption.innerHTML = `<b>${f.label}</b> · uses ${uses} · used by ${by}`;
+    if (reduce) { t = 1; draw(); return; }
+    t = 0;
+    const start = performance.now();
+    const step = (now) => { t = Math.min(1, (now - start) / 260); draw(); if (t < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  canvas.addEventListener("pointermove", pick);
+  canvas.addEventListener("pointerdown", pick);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+  new ResizeObserver(size).observe(canvas);
+  caption.innerHTML = "<b>api.ts · placeOrder</b> · uses 1 · used by 2 — hover another circle";
+})();
+</script>
+</body>
+</html>

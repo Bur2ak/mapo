@@ -527,7 +527,7 @@ private struct ProjectOverview: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(workspace.project.name)
+                    Text(workspace.project.displayName)
                         .font(.title3.weight(.semibold))
                     if let graph = workspace.graph {
                         Text(summary(graph))

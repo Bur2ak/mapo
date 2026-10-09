@@ -12,7 +12,7 @@ struct ProjectDetailView: View {
         WorkspaceView(inspectorShown: $inspectorShown)
             .environment(workspace)
             .focusedSceneValue(workspace)
-            .navigationTitle(project.name)
+            .navigationTitle(project.displayName)
     }
 }
 

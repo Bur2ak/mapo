@@ -294,7 +294,7 @@ final class Workspace {
         }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
-        panel.nameFieldStringValue = "\(project.name) haritası.png"
+        panel.nameFieldStringValue = "\(project.displayName).png"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try png.write(to: url, options: .atomic)

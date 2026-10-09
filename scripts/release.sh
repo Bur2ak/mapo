@@ -145,6 +145,12 @@ if [ "$PUBLISH" = "--publish" ]; then
   git fetch -q --tags
 fi
 
+# Homebrew cask for the tap (Bur2ak/homebrew-tap: Casks/mapo.rb).
+SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+sed -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" \
+  packaging/homebrew/mapo.rb > "$DIST/mapo.rb"
+echo "  Homebrew: $DIST/mapo.rb (sha256 $SHA)"
+
 printf "\n\033[32m✓ Mapo %s hazır: %s\033[0m\n" "$VERSION" "$DMG"
 }
 
