@@ -16,7 +16,7 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     # Gömülü Python ve mapo-mcp arm64: uygulama da yalnız Apple Silicon (PLAN A23, A29).
     ARCHS: arm64
-    MARKETING_VERSION: "0.3.0"
+    MARKETING_VERSION: "0.3.1"
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES

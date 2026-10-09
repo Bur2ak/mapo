@@ -140,7 +140,11 @@ if [ "$PUBLISH" = "--publish" ]; then
   # gh creates the tag on the remote with the release: a failed release
   # leaves no orphan tag, and rerunning is safe.
   gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1 && fail "v$VERSION zaten yayında"
-  gh release create "v$VERSION" "$DMG" "$DIST/appcast.xml" --repo "$REPO" --target "$(git rev-parse HEAD)" \
+  # A copy under a fixed name: .../releases/latest/download/Mapo.dmg is
+  # always a direct download of the newest version (site, README).
+  LATEST_DIR="$(mktemp -d)"
+  cp "$DMG" "$LATEST_DIR/Mapo.dmg"
+  gh release create "v$VERSION" "$DMG" "$LATEST_DIR/Mapo.dmg" "$DIST/appcast.xml" --repo "$REPO" --target "$(git rev-parse HEAD)" \
     --title "Mapo $VERSION" --notes-file "$NOTES" --latest
   git fetch -q --tags
 fi
