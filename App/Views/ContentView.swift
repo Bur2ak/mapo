@@ -37,6 +37,11 @@ struct ContentView: View {
                 try? Diagnostics.build(summary: Diagnostics.report(model: model), to: URL(fileURLWithPath: out))
             }
             if d.bool(forKey: "mapoSample") { model.finishOnboarding(); await model.openSample() }
+            if let folder = d.string(forKey: "mapoIndexFolder") {
+                model.finishOnboarding()
+                await model.addFolders([URL(fileURLWithPath: folder)])
+                if let id = model.selection { model.indexer.enqueue(id) }
+            }
             if d.bool(forKey: "mapoOpenSettings") || d.string(forKey: "mapoSettingsTab") != nil { openSettings() }
             if d.bool(forKey: "mapoShowGitHub") {
                 try? await Task.sleep(for: .milliseconds(600))

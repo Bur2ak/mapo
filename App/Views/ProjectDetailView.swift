@@ -134,14 +134,27 @@ private struct WorkspaceToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         @Bindable var map = workspace.map
+        ToolbarItemGroup(placement: .navigation) {
+            Button { workspace.goBack() } label: { Label("Geri", systemImage: "chevron.left") }
+                .help("Önceki seçim (⌘[)")
+                .disabled(workspace.back.isEmpty)
+            Button { workspace.goForward() } label: { Label("İleri", systemImage: "chevron.right") }
+                .help("Sonraki seçim (⌘])")
+                .disabled(workspace.forward.isEmpty)
+        }
         ToolbarItemGroup(placement: .primaryAction) {
             UpdateButton()
 
-            Picker("Ayrıntı", selection: $map.detail) {
-                ForEach(MapController.Detail.allCases) { Text($0.title).tag($0) }
+            // Two levels people switch between; constants are a View option.
+            Picker("Ayrıntı", selection: Binding(
+                get: { map.detail == .files ? MapController.Detail.files : .symbols },
+                set: { map.detail = $0 == .files ? .files : (map.detail == .everything ? .everything : .symbols) }
+            )) {
+                Text(MapController.Detail.files.title).tag(MapController.Detail.files)
+                Text(MapController.Detail.symbols.title).tag(MapController.Detail.symbols)
             }
             .pickerStyle(.segmented)
-            .help("Dosyalar: yalnız dosyalar · Kod: fonksiyonlar, tipler, uç noktalar ve tablolar · Tümü: sabitler ve değişkenler de (⌘1 ⌘2 ⌘3)")
+            .help("Dosyalar: yalnız dosyalar · Kod: fonksiyonlar, tipler, uç noktalar ve tablolar (⌘1 ⌘2)")
             .disabled(workspace.state != .ready)
 
             Menu {
@@ -160,6 +173,10 @@ private struct WorkspaceToolbar: ToolbarContent {
                 }
                 .pickerStyle(.inline)
                 Divider()
+                Toggle("Sabitleri ve değişkenleri göster", isOn: Binding(
+                    get: { map.detail == .everything },
+                    set: { map.detail = $0 ? .everything : .symbols }
+                ))
                 Toggle("Testleri gizle", isOn: $map.hideTests)
                 Toggle("Yapılandırma ve derleme dosyalarını göster", isOn: $map.showNoise)
                 Divider()

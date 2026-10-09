@@ -216,3 +216,43 @@ struct BridgesMoreTests {
         #expect(Bridges.Spans.braceEnd(lines, start: 13) == 18)
     }
 }
+
+@Suite("Köprüler: route gövdesindeki çağrılar")
+struct BridgesHandlerCallTests {
+    @Test func inlineHandlerCallsImportedFunctions() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("mapo-hc-\(UUID().uuidString)")
+        let files = [
+            "api/routes/orders.ts": """
+            import { Hono } from 'hono'
+            import { saveOrder, priceOf } from '../lib/db'
+            const orders = new Hono()
+            orders.post('/', async (c) => {
+              const total = await priceOf(c.env.DB)
+              await saveOrder(c.env.DB, total)
+              return c.json(format(total))
+            })
+            function format(x) { return x }
+            """,
+            "api/lib/db.ts": "export async function saveOrder() {}\nexport async function priceOf() {}",
+        ]
+        for (p, t) in files {
+            let u = root.appendingPathComponent(p)
+            try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(t.utf8).write(to: u)
+        }
+        let nodes = [
+            Node(id: "f:orders", label: "orders.ts", kind: .file, sourceFile: "api/routes/orders.ts", line: 1, community: nil),
+            Node(id: "f:db", label: "db.ts", kind: .file, sourceFile: "api/lib/db.ts", line: 1, community: nil),
+            Node(id: "save", label: "saveOrder()", kind: .function, sourceFile: "api/lib/db.ts", line: 1, community: nil),
+            Node(id: "price", label: "priceOf()", kind: .function, sourceFile: "api/lib/db.ts", line: 2, community: nil),
+            Node(id: "format", label: "format()", kind: .function, sourceFile: "api/routes/orders.ts", line: 9, community: nil),
+        ]
+        let edges = [
+            Edge(source: "f:orders", target: "save", relation: .imports, confidence: .extracted, sourceFile: "api/routes/orders.ts", line: 2),
+            Edge(source: "f:orders", target: "price", relation: .imports, confidence: .extracted, sourceFile: "api/routes/orders.ts", line: 2),
+        ]
+        let (doc, _) = Bridges.extract(root: root, graph: Graph(nodes: nodes, edges: edges))
+        let calls = Set(doc.links.filter { $0.relation == "calls" }.map { "\($0.source)→\($0.target)" })
+        #expect(calls == ["mapo:route:POST /→price", "mapo:route:POST /→save", "mapo:route:POST /→format"])
+    }
+}

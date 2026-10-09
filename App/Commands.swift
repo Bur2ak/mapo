@@ -11,6 +11,18 @@ struct MapCommands: Commands {
                 .keyboardShortcut("k")
                 .disabled(workspace?.search == nil)
 
+            Button("Geri") { workspace?.goBack() }
+                .keyboardShortcut("[")
+                .disabled(workspace?.back.isEmpty ?? true)
+            Button("İleri") { workspace?.goForward() }
+                .keyboardShortcut("]")
+                .disabled(workspace?.forward.isEmpty ?? true)
+            Button("Üst Düzeye Çık") { workspace?.map.goUp() }
+                .keyboardShortcut(.upArrow)
+                .disabled(workspace?.state != .ready)
+
+            Divider()
+
             Button("Seçileni Editörde Aç") {
                 if let ws = workspace, let node = ws.selectedNode { Editor.open(node: node, in: ws) }
             }

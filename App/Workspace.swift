@@ -58,7 +58,35 @@ final class Workspace {
         set { if newValue == nil { indexer.clearError(project.id) } }
     }
 
-    var selectedID: String?
+    var selectedID: String? {
+        didSet {
+            // History for ⌘[ / ⌘]: every selection the user moved away from.
+            guard !navigatingHistory, let old = oldValue, old != selectedID else { return }
+            back.append(old)
+            if back.count > 200 { back.removeFirst() }
+            forward.removeAll()
+        }
+    }
+    private(set) var back: [String] = []
+    private(set) var forward: [String] = []
+    @ObservationIgnored private var navigatingHistory = false
+
+    func goBack() { step(from: &back, to: &forward) }
+    func goForward() { step(from: &forward, to: &back) }
+
+    private func step(from: inout [String], to: inout [String]) {
+        // Skip entries that vanished with a map update.
+        while let id = from.popLast() {
+            guard graph?.node(id) != nil else { continue }
+            if let cur = selectedID { to.append(cur) }
+            navigatingHistory = true
+            selectedID = id
+            navigatingHistory = false
+            overlay = nil
+            map.select(id)
+            return
+        }
+    }
     var isSearchPresented = false
 
     /// A question answered on the map, shown in the inspector until dismissed.

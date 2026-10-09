@@ -78,14 +78,15 @@ extension Bridges {
     static let drizzleQuery = try! NSRegularExpression(pattern: #"\.query\s*\.\s*([A-Za-z_$][\w$]*)\s*\.\s*(findMany|findFirst)\b"#)
 
     static func findTableUses(texts: [String: String], tables: [TableDef]) -> [TableUse] {
-        var byName: [String: String] = [:], prisma: [String: String] = [:], drizzle: [String: String] = [:]
+        var names: [String: String] = [:], prismaNames: [String: String] = [:], drizzleNames: [String: String] = [:]
         for t in tables {
-            byName[t.name.lowercased()] = t.name
-            if t.source == .prisma, let h = t.handle { prisma[h] = t.name }
-            if t.source == .drizzle, let h = t.handle { drizzle[h] = t.name }
+            names[t.name.lowercased()] = t.name
+            if t.source == .prisma, let h = t.handle { prismaNames[h] = t.name }
+            if t.source == .drizzle, let h = t.handle { drizzleNames[h] = t.name }
         }
-        var uses: [TableUse] = []
-        for (f, t) in texts {
+        let byName = names, prisma = prismaNames, drizzle = drizzleNames
+        return perFile(texts) { f, t in
+            var uses: [TableUse] = []
             let lines = LineIndex(t)
             let ns = t as NSString
             let all = NSRange(location: 0, length: ns.length)
@@ -98,7 +99,7 @@ extension Bridges {
                 let kw = ns.substring(with: m.range(at: 1))
                 add(byName[ns.substring(with: m.range(at: 2)).lowercased()], m.range.location, !["FROM", "JOIN"].contains(kw))
             }
-            guard !f.hasSuffix(".py") else { continue }
+            guard !f.hasSuffix(".py") else { return uses }
             // Supabase: .from('table').select() reads; insert/update/upsert/delete write.
             for m in supabaseFrom.matches(in: t, range: all) {
                 let op = ns.substring(with: m.range(at: 2))
@@ -119,7 +120,7 @@ extension Bridges {
                     add(drizzle[ns.substring(with: m.range(at: 1))], m.range.location, false)
                 }
             }
+            return uses
         }
-        return uses
     }
 }

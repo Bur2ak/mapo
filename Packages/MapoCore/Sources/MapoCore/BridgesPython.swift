@@ -148,8 +148,8 @@ extension Bridges {
     }
 
     static func pythonCalls(texts: [String: String]) -> [Call] {
-        var calls: [Call] = []
-        for (f, t) in texts where f.hasSuffix(".py") {
+        perFile(texts, where: { $0.hasSuffix(".py") }) { f, t in
+            var calls: [Call] = []
             let ns = t as NSString
             let lines = LineIndex(t)
             for m in pyClient.matches(in: t, range: NSRange(location: 0, length: ns.length)) {
@@ -168,7 +168,7 @@ extension Bridges {
                 let method = verb == "request" ? "*" : verb.uppercased()
                 calls.append(Call(method: method, path: path, file: f, line: lines.line(at: m.range.location)))
             }
+            return calls
         }
-        return calls
     }
 }

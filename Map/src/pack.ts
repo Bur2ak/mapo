@@ -108,6 +108,10 @@ let showNoise = false;
 
 let selected: Circle | null = null;
 let hovered: Circle | null = null;
+/** Hovering previews a file's or function's links (selected stands in for
+ *  it without telling the app); a click makes it the real selection. */
+let previewing = false;
+let previewTimer = 0;
 /** Folder the user zoomed into (breadcrumb, Esc / background click go up). */
 let zoomDir: Circle | null = null;
 
@@ -172,6 +176,7 @@ function build() {
   const n = p.nodes;
   byKey.clear();
   selected = hovered = null;
+  previewing = false;
   focus = null;
   highlight = null;
   zoomDir = null;
@@ -1241,8 +1246,8 @@ function symbolLabel(c: Circle, insideOnly: boolean) {
 }
 
 function drawRings() {
-  if (hovered && hovered !== selected && onScreen(hovered)) disc(hovered, null, theme.label, 1.5);
-  const sel = selected ? visual(selected) : null;
+  if (hovered && (hovered !== selected || previewing) && onScreen(hovered)) disc(hovered, null, theme.label, 1.5);
+  const sel = chosen() ? visual(selected!) : null;
   if (sel && onScreen(sel)) {
     const x = toScreenX(sel.x), y = toScreenY(sel.y), r = Math.max(3, sel.r * cam.k);
     ctx.beginPath();
@@ -1262,10 +1267,11 @@ function drawRings() {
 
 let crumbKey = "";
 function updateCrumbs() {
-  const at = selected?.kind === "sym" ? selected.parent : selected ?? zoomDir;
+  const picked = chosen();
+  const at = picked?.kind === "sym" ? picked.parent : picked ?? zoomDir;
   const chain: Circle[] = [];
   for (let c = at?.kind === "file" ? at.parent : at; c; c = c.parent) chain.unshift(c);
-  const key = chain.map((c) => c.key).join(">") + (selected ? `|${selected.key}` : "");
+  const key = chain.map((c) => c.key).join(">") + (picked ? `|${picked.key}` : "");
   if (key === crumbKey) return;
   crumbKey = key;
   crumbs.replaceChildren();
@@ -1282,10 +1288,11 @@ function updateCrumbs() {
     b.onclick = () => zoomInto(c);
     crumbs.append(b);
   });
-  if (selected) {
+  const sel = chosen();
+  if (sel) {
     crumbs.append(sep());
     const s = document.createElement("span");
-    s.textContent = selected.kind === "sym" ? `${selected.parent!.name} › ${selected.name}` : selected.name;
+    s.textContent = sel.kind === "sym" ? `${sel.parent!.name} › ${sel.name}` : sel.name;
     crumbs.append(s);
   }
 }
@@ -1375,6 +1382,7 @@ canvas.addEventListener("pointermove", (e) => {
     requestDraw();
   }
   canvas.style.cursor = h ? "pointer" : "";
+  schedulePreview(h);
   if (h && h.kind !== "dir") showTip(h, px, py);
   else hideTip();
 });
@@ -1388,12 +1396,16 @@ canvas.addEventListener("pointerup", (e) => {
   const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
   if (e.detail > 1) return;  // second click of a double click
   if (!hit || hit.kind === "root") {
-    if (selected || highlight) clearSelection(true);
-    else zoomOut();
+    if (chosen() || highlight) clearSelection(true);
+    else {
+      endPreview();
+      zoomOut();
+    }
     return;
   }
   if (hit.kind === "dir") {
-    if (selected || highlight) clearSelection(true);
+    if (chosen() || highlight) clearSelection(true);
+    endPreview();
     zoomInto(hit);
     return;
   }
@@ -1408,6 +1420,7 @@ canvas.addEventListener("dblclick", (e) => {
 
 canvas.addEventListener("pointerleave", () => {
   hovered = null;
+  endPreview();
   hideTip();
   requestDraw();
 });
@@ -1445,7 +1458,8 @@ canvas.addEventListener(
 
 addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (selected || highlight) clearSelection(true);
+  if (chosen() || highlight) clearSelection(true);
+  else if (previewing) endPreview();
   else zoomOut();
 });
 
@@ -1498,8 +1512,41 @@ function fileOfId(id: string): Circle | undefined {
   return owner >= 0 ? byKey.get(n.id[owner]) : undefined;
 }
 
+function schedulePreview(h: Circle | null) {
+  clearTimeout(previewTimer);
+  // A real selection, or a path / impact view, is never replaced by hovering.
+  if ((selected && !previewing) || highlight) return;
+  if (!h || h.kind === "dir") {
+    if (previewing) previewTimer = window.setTimeout(endPreview, 80);
+    return;
+  }
+  // A short pause, so sweeping across the map doesn't flicker.
+  previewTimer = window.setTimeout(() => {
+    previewing = true;
+    selected = h;
+    computeFocus();
+    requestDraw();
+  }, 120);
+}
+
+function endPreview() {
+  clearTimeout(previewTimer);
+  if (!previewing) return;
+  previewing = false;
+  selected = null;
+  focus = null;
+  requestDraw();
+}
+
+/** A selection the user made (not a hover preview). */
+const chosen = () => (previewing ? null : selected);
+
 function setSelected(c: Circle | null, notify: boolean, fly: boolean) {
+  clearTimeout(previewTimer);
+  previewing = false;
   selected = c;
+  // VoiceOver: the map says what's selected.
+  canvas.setAttribute("aria-label", c ? `${c.kind === "file" ? t("file") : c.kind === "sym" && payload ? kindLabel(payload.nodes.kind[c.idx]) : ""} ${c.name}`.trim() : t("project"));
   // The user moved on from a path / impact view: tell the app.
   if (highlight) post({ type: "highlight", active: false });
   highlight = null;
@@ -1590,7 +1637,7 @@ function setHighlight(ids: string[], chain: boolean, label = "") {
 function rebuildKeepingView() {
   if (!payload) return;
   const keep = { ...cam };
-  const sel = selected?.key ?? null;
+  const sel = chosen()?.key ?? null;
   build();
   Object.assign(cam, keep);
   if (sel) selectKey(sel, false);
@@ -1658,6 +1705,22 @@ const api = {
     o.fillRect(0, 0, out.width, out.height);
     o.drawImage(canvas, 0, 0);
     return out.toDataURL("image/png");
+  },
+  goUp: () => {
+    const sel = chosen();
+    endPreview();
+    if (sel?.kind === "sym") {
+      setSelected(sel.parent!, true, true);
+      return;
+    }
+    if (sel) {
+      const dir = sel.parent;
+      clearSelection(true);
+      if (dir && dir.kind !== "root") zoomInto(dir);
+      else zoomOut();
+      return;
+    }
+    zoomOut();
   },
   setLinkFilter: (f: LinkFilter) => {
     if (f === linkFilter) return;

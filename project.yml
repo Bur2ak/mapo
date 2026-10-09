@@ -66,18 +66,13 @@ targets:
       - name: Örnek projeyi göm
         basedOnDependencyAnalysis: false
         script: |
-          # İlk açılıştaki örnek harita: Mapo'nun kendi kaynak kodu (Apache-2.0).
+          # İlk açılıştaki örnek harita: küçük bir full-stack uygulama
+          # (mobil → Hono API → D1), köprüler ilk bakışta görünsün diye.
           set -e
-          DST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sample/Mapo"
+          DST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sample"
           rm -rf "${DST}"
           mkdir -p "${DST}"
-          cd "${SRCROOT}"
-          rsync -a --exclude='Resources/' --include='*/' --include='*.swift' --exclude='*' --prune-empty-dirs App "${DST}/"
-          mkdir -p "${DST}/Packages/MapoCore" "${DST}/Map"
-          rsync -a --include='*/' --include='*.swift' --exclude='*' --prune-empty-dirs Packages/MapoCore/Sources Packages/MapoCore/Tests "${DST}/Packages/MapoCore/"
-          rsync -a --include='*/' --include='*.ts' --include='*.css' --include='*.html' --exclude='*' --prune-empty-dirs Map/src "${DST}/Map/"
-          cp LICENSE "${DST}/LICENSE"
-          printf '%s\n' "# Mapo (örnek proje)" "" "Mapo'nun kendi kaynak kodu; ilk haritan için. Apache-2.0." > "${DST}/README.md"
+          rsync -a "${SRCROOT}/Sample/CoffeeShop" "${DST}/"
       - name: Gömülü motoru kopyala
         basedOnDependencyAnalysis: false
         script: |

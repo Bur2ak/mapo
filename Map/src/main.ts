@@ -1451,6 +1451,7 @@ const api = {
   /** The network view has no translated text of its own yet. */
   setLocale: (_l: string) => {},
   setLinkFilter: (_f: string) => {},
+  goUp: () => {},
   relayout: () => {
     if (!payload) return;
     payload.positions = null;

@@ -230,6 +230,17 @@ struct BridgesTests {
         let calls = Bridges.findCalls(texts: texts, skipping: Set(routes.map(\.file)))
         let missed = calls.filter { Bridges.match($0, in: routes) == nil }
         print("CALLS \(calls.count) matched \(calls.count - missed.count)")
+        let procs = Bridges.findProcedures(texts: texts)
+        print("TRPC procedures \(procs.count)", procs.prefix(5).map(\.path))
+        let rpc = Bridges.findRPCCalls(texts: texts)
+        print("TRPC calls \(rpc.count)", rpc.prefix(5).map(\.path))
+        if let app = texts.first(where: { $0.key.hasSuffix("routers/viewer/_router.tsx") }) {
+            let ns = app.value as NSString
+            for m in Bridges.trpcRouter.matches(in: app.value, range: NSRange(location: 0, length: ns.length)) {
+                let e = Bridges.topLevelEntries(ns, openBrace: m.range.location + m.range.length - 1)
+                print("VIEWER entries", e.count, e.prefix(4).map { "\($0.0)=\($0.1.prefix(40))" })
+            }
+        }
         let fileIDs = Set(graph.nodes.filter { $0.kind == .file }.map(\.id))
         let sqlEdges = doc.links.filter { $0.relation == "reads" || $0.relation == "writes" }
         print("SQL edges from files \(sqlEdges.filter { fileIDs.contains($0.source) || $0.source.hasPrefix("mapo:file:") }.count) / \(sqlEdges.count)")

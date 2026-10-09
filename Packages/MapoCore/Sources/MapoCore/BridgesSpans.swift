@@ -11,17 +11,26 @@ extension Bridges {
         private var byFile: [String: [(start: Int, end: Int, id: String)]] = [:]
 
         init(functions: [String: [(line: Int, id: String)]], texts: [String: String]) {
-            for (file, fns) in functions {
-                guard let text = texts[file] else { continue }
-                let lines = text.components(separatedBy: "\n")
-                let python = file.hasSuffix(".py")
-                var spans: [(Int, Int, String)] = []
-                for f in fns {
+            let files = functions.keys.filter { texts[$0] != nil }.sorted()
+            let starts = files.map { f in functions[f]!.map { Start(line: $0.line, id: $0.id) } }
+            let slots = Slots<[Span]>(count: files.count)
+            DispatchQueue.concurrentPerform(iterations: files.count) { i in
+                let lines = texts[files[i]]!.components(separatedBy: "\n")
+                let python = files[i].hasSuffix(".py")
+                slots.set(i, starts[i].map { f in
                     let end = python ? Self.pythonEnd(lines, start: f.line) : Self.braceEnd(lines, start: f.line)
-                    spans.append((f.line, max(f.line, end), f.id))
-                }
-                byFile[file] = spans
+                    return Span(start: f.line, end: max(f.line, end), id: f.id)
+                })
             }
+            for (i, f) in files.enumerated() { byFile[f] = (slots.value(i) ?? []).map { ($0.start, $0.end, $0.id) } }
+        }
+
+        private struct Start: Sendable { let line: Int; let id: String }
+        private struct Span: Sendable { let start: Int; let end: Int; let id: String }
+
+        /// Lines of the span recorded for `id` in `file`.
+        func range(_ file: String, _ id: String) -> ClosedRange<Int>? {
+            byFile[file]?.first { $0.id == id }.map { $0.start...$0.end }
         }
 
         /// Innermost function containing `line`, else nil (top-level code).

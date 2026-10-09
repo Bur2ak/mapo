@@ -40,6 +40,8 @@ struct MapoApp: App {
             CommandGroup(replacing: .help) {
                 Button("Mapo'ya Hoş Geldin") { model.showOnboarding = true }
                 Button("Örnek Projeyi Aç") { Task { await model.openSample() } }
+                Divider()
+                Button("Geri Bildirim Gönder…") { Feedback.open() }
             }
             UpdaterCommands()
             MapCommands()

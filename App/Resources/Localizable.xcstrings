@@ -773,12 +773,12 @@
         }
       }
     },
-    "Dosyalar: yalnız dosyalar · Kod: fonksiyonlar, tipler, uç noktalar ve tablolar · Tümü: sabitler ve değişkenler de (⌘1 ⌘2 ⌘3)": {
+    "Dosyalar: yalnız dosyalar · Kod: fonksiyonlar, tipler, uç noktalar ve tablolar (⌘1 ⌘2)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Files: files only · Code: functions, types, endpoints and tables · All: constants and variables too (⌘1 ⌘2 ⌘3)"
+            "value": "Files: files only · Code: functions, types, endpoints and tables (⌘1 ⌘2)"
           }
         }
       }
@@ -1011,6 +1011,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "General"
+          }
+        }
+      }
+    },
+    "Geri": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
+          }
+        }
+      }
+    },
+    "Geri Bildirim Gönder…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send Feedback…"
           }
         }
       }
@@ -1700,6 +1720,16 @@
         }
       }
     },
+    "Kod ve sabitler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code and constants"
+          }
+        }
+      }
+    },
     "Kod yalnızca bu Mac'te analiz edilir. Büyük projelerde bir dakika sürebilir.": {
       "localizations": {
         "en": {
@@ -2053,6 +2083,16 @@
         }
       }
     },
+    "Sabitleri ve değişkenleri göster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show constants and variables"
+          }
+        }
+      }
+    },
     "Sayfa %lld / %lld": {
       "localizations": {
         "en": {
@@ -2149,6 +2189,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Last update failed: %@\nClick to try again (⌘R)."
+          }
+        }
+      }
+    },
+    "Sonraki seçim (⌘])": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next selection (⌘])"
           }
         }
       }
@@ -2279,16 +2329,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "All links"
-          }
-        }
-      }
-    },
-    "Tümü": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All"
           }
         }
       }
@@ -2884,6 +2924,16 @@
         }
       }
     },
+    "Önceki seçim (⌘[)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous selection (⌘[)"
+          }
+        }
+      }
+    },
     "Örnek Projeyi Aç": {
       "localizations": {
         "en": {
@@ -2914,12 +2964,22 @@
         }
       }
     },
-    "Örnek: Mapo": {
+    "Örnek: Kahve dükkânı": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sample: Mapo"
+            "value": "Sample: Coffee shop"
+          }
+        }
+      }
+    },
+    "Üst Düzeye Çık": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go Up"
           }
         }
       }
@@ -2960,6 +3020,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "calls"
+          }
+        }
+      }
+    },
+    "İleri": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward"
           }
         }
       }

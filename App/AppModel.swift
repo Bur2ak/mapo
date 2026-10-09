@@ -205,14 +205,15 @@ final class AppModel {
         UserDefaults.standard.set(true, forKey: "onboardingDone")
     }
 
-    /// Mapo's own source, shipped in the app, as a ready-made first map.
+    /// A small full-stack app shipped in Mapo (Sample/CoffeeShop), as a
+    /// ready-made first map that shows the HTTP and SQL links.
     /// Copied out of the bundle (read-only, signed) into the data folder.
     func openSample() async {
-        guard let bundled = Bundle.main.url(forResource: "Sample", withExtension: nil)?.appendingPathComponent("Mapo") else {
+        guard let bundled = Bundle.main.url(forResource: "Sample", withExtension: nil)?.appendingPathComponent("CoffeeShop") else {
             alert = AlertMessage(title: String(localized: "Örnek proje bulunamadı"), message: String(localized: "Bu Mapo sürümünde örnek proje yok."))
             return
         }
-        let target = paths.base.appendingPathComponent("Sample/Mapo", isDirectory: true)
+        let target = paths.base.appendingPathComponent("Sample/CoffeeShop", isDirectory: true)
         let fm = FileManager.default
         do {
             if !fm.fileExists(atPath: target.path) {
@@ -224,7 +225,7 @@ final class AppModel {
             return
         }
         do {
-            selection = try await library.add(folder: target, name: String(localized: "Örnek: Mapo")).id
+            selection = try await library.add(folder: target, name: String(localized: "Örnek: Kahve dükkânı")).id
         } catch ProjectLibrary.LibraryError.alreadyAdded(let id) {
             selection = id
         } catch {

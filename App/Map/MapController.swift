@@ -28,7 +28,7 @@ final class MapController: NSObject {
             switch self {
             case .files: "Dosyalar"
             case .symbols: "Kod"
-            case .everything: "Tümü"
+            case .everything: "Kod ve sabitler"
             }
         }
     }
@@ -160,6 +160,8 @@ final class MapController: NSObject {
     func focusGroup(_ id: Int) { call("mapoMap.focusGroup(g)", ["g": id]) }
     func zoom(_ factor: Double) { call("mapoMap.zoom(f)", ["f": factor]) }
     func relayout() { call("mapoMap.relayout()", [:]) }
+    /// Symbol → its file; file → its folder; folder → the one above.
+    func goUp() { call("mapoMap.goUp()", [:]) }
 
     /// The map as it is on screen, as PNG data.
     func snapshotPNG() async -> Data? {

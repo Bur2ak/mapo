@@ -79,6 +79,13 @@ public enum Bridges {
     }
 
     static func extract(root: URL, graph: Graph) -> (Doc, Output) {
+        let clock = ContinuousClock()
+        var lap = clock.now
+        func tick(_ name: String) {
+            guard ProcessInfo.processInfo.environment["MAPO_BRIDGES_TIMING"] != nil else { return }
+            print("  ⏱ \(name): \(clock.now - lap)"); lap = clock.now
+        }
+        defer { tick("end") }
         var doc = Doc()
         var out = Output()
 
@@ -88,11 +95,14 @@ public enum Bridges {
             if let f = n.sourceFile { fileNodeID[f] = n.id }
         }
         let codeFiles = fileNodeID.keys.filter { codeExtensions.contains(($0 as NSString).pathExtension.lowercased()) }.sorted()
-        var texts: [String: String] = [:]
-        for f in codeFiles {
-            if let t = read(root.appendingPathComponent(f)) { texts[f] = t }
+        let slots = Slots<String>(count: codeFiles.count)
+        DispatchQueue.concurrentPerform(iterations: codeFiles.count) { i in
+            if let t = read(root.appendingPathComponent(codeFiles[i])) { slots.set(i, t) }
         }
+        var texts: [String: String] = [:]
+        for (i, f) in codeFiles.enumerated() { if let t = slots.value(i) { texts[f] = t } }
 
+        tick("read")
         // "Which function makes this call": the innermost function whose
         // body contains the line (Spans), else the file itself.
         var functions: [String: [(line: Int, id: String)]] = [:]
@@ -113,8 +123,10 @@ public enum Bridges {
             return id
         }
 
+        tick("spans")
         // HTTP (JS/TS frameworks, Next.js, Cloudflare Workers, Python)
-        let routes = findRoutes(texts: texts) + pythonRoutes(texts: texts)
+        // Test servers and fixtures aren't the app's surface.
+        let routes = (findRoutes(texts: texts) + pythonRoutes(texts: texts)).filter { !MapPayload.isTestPath($0.file) }
         var routeID: [Int: String] = [:]
         var seen = Set<String>()
         for (i, r) in routes.enumerated() {
@@ -130,6 +142,34 @@ public enum Bridges {
             handlers[r.file, default: []].append((r.line, routeID[i]!))
         }
         spans = Spans(functions: handlers, texts: texts)
+        // Calls made inside an inline handler belong to its route: graphify
+        // sees only the file's imports there, so "POST /orders → saveOrder"
+        // is read from the handler's text, against names the file imports or
+        // defines (nothing else can be called by that name).
+        var callable: [String: [String: String]] = [:]   // file → name → node id
+        for e in graph.edges where e.relation.isImport {
+            let src = graph.nodes[e.sourcePosition], dst = graph.nodes[e.targetPosition]
+            guard src.kind == .file, let f = src.sourceFile, [.function, .method, .type].contains(dst.kind) else { continue }
+            callable[f, default: [:]][dst.name] = dst.id
+        }
+        for (f, list) in functions {
+            for fn in list { if let n = graph.node(fn.id) { callable[f, default: [:]][n.name] = n.id } }
+        }
+        for (i, r) in routes.enumerated() {
+            guard let id = routeID[i], let span = spans.range(r.file, id), let names = callable[r.file], let text = texts[r.file] else { continue }
+            let lines = text.components(separatedBy: "\n")
+            guard span.upperBound <= lines.count else { continue }
+            var seenCalls = Set<String>()
+            for ln in span {
+                let line = lines[ln - 1]
+                for m in callName.matches(in: line, range: NSRange(line.startIndex..., in: line)) {
+                    guard let r = Range(m.range(at: 1), in: line), let target = names[String(line[r])],
+                          spans.owner(routes[i].file, ln) == id,
+                          seenCalls.insert(target).inserted else { continue }
+                    doc.links.append(.init(source: id, target: target, relation: "calls", confidence: "INFERRED", source_file: routes[i].file, source_location: "L\(ln)"))
+                }
+            }
+        }
         var edges = Set<String>()
         func request(_ from: String?, _ target: String, _ file: String, _ line: Int) {
             guard let from, edges.insert(from + "→" + target).inserted else { return }
@@ -144,6 +184,7 @@ public enum Bridges {
             }
         }
 
+        tick("http")
         // tRPC
         let procedures = findProcedures(texts: texts)
         if !procedures.isEmpty {
@@ -162,6 +203,7 @@ public enum Bridges {
             }
         }
 
+        tick("trpc")
         // Databases (SQL migrations, Prisma, Drizzle; used via SQL, Supabase, Prisma, Drizzle)
         let tables = findTables(root: root, texts: texts, schemaFiles: findSchemaFiles(root: root))
         var tableID: [String: String] = [:]
@@ -185,6 +227,9 @@ public enum Bridges {
         }
         return (doc, out)
     }
+
+    /// `name(` — a call site (also matches `await name(`, `x = name(`).
+    static let callName = try! NSRegularExpression(pattern: #"(?<![\w$.])([A-Za-z_$][\w$]*)\s*\("#)
 
     // MARK: - HTTP: server side
 
@@ -339,8 +384,8 @@ public enum Bridges {
     ]
 
     static func findCalls(texts: [String: String], skipping: Set<String>) -> [Call] {
-        var calls: [Call] = []
-        for (f, t) in texts where !skipping.contains(f) && !f.hasSuffix(".py") {
+        perFile(texts, where: { !skipping.contains($0) && !$0.hasSuffix(".py") }) { f, t in
+            var calls: [Call] = []
             let lines = LineIndex(t)
             let ns = t as NSString
             for m in clientCall.matches(in: t, range: NSRange(location: 0, length: ns.length)) {
@@ -366,8 +411,8 @@ public enum Bridges {
                 let receiver = parts.count > 1 ? String(parts[parts.count - 2]) : nil
                 calls.append(Call(method: method, path: path, file: f, line: lines.line(at: m.range.location), receiver: receiver))
             }
+            return calls
         }
-        return calls
     }
 
     /// UTF-16 length from `start` to the paren closing the call that opened

@@ -95,15 +95,15 @@ extension Bridges {
     struct RPCCall: Equatable { let path: String; let file: String; let line: Int }
 
     static func findRPCCalls(texts: [String: String]) -> [RPCCall] {
-        var calls: [RPCCall] = []
-        for (f, t) in texts where !f.hasSuffix(".py") {
+        perFile(texts, where: { !$0.hasSuffix(".py") }) { f, t in
+            var calls: [RPCCall] = []
             let ns = t as NSString
             let lines = LineIndex(t)
             for m in trpcClient.matches(in: t, range: NSRange(location: 0, length: ns.length)) {
                 let path = ns.substring(with: m.range(at: 1)).filter { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: "."))
                 calls.append(RPCCall(path: path, file: f, line: lines.line(at: m.range.location)))
             }
+            return calls
         }
-        return calls
     }
 }
