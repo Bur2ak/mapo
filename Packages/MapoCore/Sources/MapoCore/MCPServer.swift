@@ -131,6 +131,9 @@ public final class MCPServer: @unchecked Sendable {
         tool("mapo_impact", "Blast radius: what may break if this symbol or file changes, grouped by distance.",
              ["project": projectProp, "symbol": symbolProp, "depth": ["type": "integer", "description": "Rings to walk (1–4, default 2)."]],
              ["project", "symbol"]),
+        tool("mapo_changed", "What changed since a commit, branch or tag (default: the commit the map was built at): files and the functions/types they touch, with how many callers each has. Includes uncommitted and untracked files. Use it to review a branch ('main') or recent work ('HEAD~3').",
+             ["project": projectProp, "since": ["type": "string", "description": "Commit, branch or tag to compare the working tree against, e.g. 'main', 'HEAD~3', 'a1b2c3d'. Default: the map's commit."]],
+             ["project"]),
     ] }
 
     private static var projectProp: [String: Any] { ["type": "string", "description": "Project name or root path, from mapo_projects."] }
@@ -227,11 +230,44 @@ public final class MCPServer: @unchecked Sendable {
                     + (ring.count > 40 ? "\n  … \(ring.count - 40) more" : "")
             }.joined(separator: "\n")
             if out.isEmpty { out = "Nothing in the map depends on \(graph.nodes[p].name)." }
+        case "mapo_changed":
+            out = try changed(project, graph, since: (a["since"] as? String).flatMap { $0.isEmpty ? nil : $0 })
         default:
             throw ToolError(message: "Unknown tool: \(name)")
         }
         let note = approximate.isEmpty ? "" : "note: approximate match — " + approximate.joined(separator: "; ") + ". Use the exact name or an id if this is not what you meant.\n"
         return note + out + "\n\n" + freshness(project, graph)
+    }
+
+    private func changed(_ project: Project, _ graph: Graph, since: String?) throws -> String {
+        let mapCommit = project.lastIndex?.commit
+        guard let since = since ?? mapCommit else {
+            throw ToolError(message: "This map has no commit (not a git repository?). Pass `since`, e.g. 'main' or 'HEAD~3'.")
+        }
+        let root = URL(fileURLWithPath: project.rootPath)
+        let changes = ChangeMap.changes(in: graph, diff: try ChangeMap.diff(since: since, at: root))
+        let shown = since.count == 40 && GitInfo.isHex(since) ? String(since.prefix(7)) : since
+        guard !changes.isEmpty else { return "No changes since \(shown)." }
+        let symbolCount = changes.reduce(0) { $0 + $1.symbols.count }
+        var parts = ["Changed since \(shown): \(changes.count) file\(changes.count == 1 ? "" : "s"), \(symbolCount) symbol\(symbolCount == 1 ? "" : "s")"]
+        for c in changes.prefix(40) {
+            let tag = c.deleted ? "  (deleted)" : c.added ? (c.file == nil ? "  (new, not in the map yet)" : "  (new)") : c.file == nil ? "  (not in the map)" : ""
+            var lines = ["file \(c.path)\(tag)"]
+            if c.header { lines.append("  (top of file: imports / constants)") }
+            for s in c.symbols.prefix(25) {
+                let callers = Set(graph.callers(of: s).map(\.node)).count
+                lines.append("  " + line(graph, s) + (callers > 0 ? "  ← \(callers) caller\(callers == 1 ? "" : "s")" : ""))
+            }
+            if c.symbols.count > 25 { lines.append("  … \(c.symbols.count - 25) more") }
+            parts.append(lines.joined(separator: "\n"))
+        }
+        if changes.count > 40 { parts.append("… \(changes.count - 40) more files") }
+        if let mapCommit, let head = try? ChangeMap.git(["-C", project.rootPath, "rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines),
+           !head.hasPrefix(mapCommit) && !mapCommit.hasPrefix(head) {
+            parts.append("note: the map was built at \(mapCommit.prefix(7)) but HEAD is \(head.prefix(7)); symbol lines come from the map and may be slightly off until Mapo rebuilds it.")
+        }
+        parts.append("Symbols are matched by line: a change belongs to the nearest declaration above it. Use mapo_impact on a symbol to see what depends on it.")
+        return parts.joined(separator: "\n")
     }
 
     // MARK: - Data

@@ -40,7 +40,7 @@ struct MCPServerTests {
         #expect(result["protocolVersion"] as? String == MCPServer.protocolVersion)
         #expect((result["capabilities"] as? [String: Any])?["tools"] != nil)
         let tools = try #require((try rpc(s, "tools/list")["result"] as? [String: Any])?["tools"] as? [[String: Any]])
-        #expect(tools.count == 9)
+        #expect(tools.count == 10)
         for t in tools {
             let schema = try #require(t["inputSchema"] as? [String: Any])
             #expect(schema["type"] as? String == "object")
@@ -143,6 +143,8 @@ struct MCPServerTests {
         #expect(e2 && b.contains("symbol"))
         let (c, e3) = try tool(s, "mapo_callers", ["project": "deneme", "symbol": "zzqqxx"])
         #expect(e3 && c.contains("mapo_search"))
+        let (d, e4) = try tool(s, "mapo_changed", ["project": "deneme", "since": "--output=/tmp/mapo-x"])
+        #expect(e4 && d.contains("HEAD~3"))
     }
 
     @Test func mapRebuildIsPickedUp() throws {
